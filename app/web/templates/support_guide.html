@@ -1,0 +1,575 @@
+{% extends "base.html" %}
+{% block title %} — User Guide{% endblock %}
+{% block head %}
+<style>
+  .guide { max-width: 100%; }
+  .guide h2 { font-size: 1.4rem; font-weight: 700; color: var(--text); text-transform: none; letter-spacing: 0; margin: 40px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .guide h3 { font-size: 1.05rem; font-weight: 600; color: var(--text); text-transform: none; letter-spacing: 0; margin: 28px 0 10px; }
+  .guide h4 { font-size: 0.9rem; font-weight: 600; color: var(--orange); text-transform: uppercase; letter-spacing: 0.5px; margin: 20px 0 8px; }
+  .guide p  { color: var(--muted); line-height: 1.7; margin-bottom: 12px; }
+  .guide ul, .guide ol { color: var(--muted); line-height: 1.8; padding-left: 22px; margin-bottom: 12px; }
+  .guide li { margin-bottom: 4px; }
+  .guide strong { color: var(--text); }
+  .guide code { background: rgba(255,255,255,0.07); color: var(--blue); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-family: monospace; }
+  .guide table { font-size: 0.85rem; margin-bottom: 16px; }
+  .guide table th { background: rgba(255,255,255,0.04); }
+  .guide table td { color: var(--muted); vertical-align: top; }
+  .guide table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+  .callout { border-left: 3px solid var(--blue); background: rgba(52,152,219,0.08); padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; }
+  .callout-warn { border-color: var(--orange); background: rgba(243,156,18,0.08); }
+  .callout-danger { border-color: var(--accent); background: rgba(231,76,60,0.08); }
+  .callout-success { border-color: var(--green); background: rgba(46,204,113,0.08); }
+  .callout p { margin: 0; }
+  .callout strong { color: var(--text); }
+  .flow { display: flex; flex-direction: column; gap: 0; margin: 20px 0; }
+  .flow-step { background: var(--surface); border: 1px solid var(--border); padding: 10px 16px; font-size: 0.9rem; }
+  .flow-step:first-child { border-radius: 6px 6px 0 0; }
+  .flow-step:last-child  { border-radius: 0 0 6px 6px; }
+  .flow-arrow { text-align: center; color: var(--muted); font-size: 1.2rem; line-height: 1; padding: 2px 0; }
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: var(--blue); color: white; border-radius: 50%; font-size: 0.75rem; font-weight: 700; margin-right: 10px; flex-shrink: 0; }
+  .step-row { display: flex; align-items: flex-start; gap: 0; margin-bottom: 16px; }
+  .step-body { flex: 1; }
+  .status-ok     { color: var(--green); font-weight: 600; }
+  .status-cond   { color: var(--accent); font-weight: 600; }
+  .status-pard   { color: var(--blue); font-weight: 600; }
+  .status-del    { color: var(--muted); font-weight: 600; }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; margin-bottom: 32px; }
+  .toc h3 { margin: 0 0 10px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc li { margin-bottom: 3px; }
+  .toc a { color: var(--muted); font-size: 0.85rem; }
+  .toc a:hover { color: var(--text); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Support</h1>
+</div>
+
+{# ── Sub-nav ── #}
+<div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+  <a href="/support/guide" style="padding:8px 16px;font-size:0.9rem;color:var(--text);border-bottom:2px solid var(--accent);text-decoration:none;margin-bottom:-1px">Documentation</a>
+  <a href="/support/audit" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Audit Log</a>
+  <a href="/support/logs"  style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Server Log</a>
+  <a href="/support/backup" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Backup</a>
+</div>
+
+<div class="card" style="padding:24px 32px"><div class="guide">
+
+  {# ── TOC ── #}
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#getting-started">Getting Started</a></li>
+      <li><a href="#account-security">Account Security</a></li>
+      <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#rules">Rules</a></li>
+      <li><a href="#death-row">Death Row</a></li>
+      <li><a href="#candidates">Candidates</a></li>
+      <li><a href="#library">Library</a></li>
+      <li><a href="#notifications">Notification Agents</a></li>
+      <li><a href="#settings">Settings Reference</a></li>
+      <li><a href="#support-tools">Support Tools</a></li>
+      <li><a href="#troubleshooting">Troubleshooting</a></li>
+    </ol>
+  </div>
+
+  {# ── 1. Overview ── #}
+  <h2 id="overview">1. Overview</h2>
+  <p>
+    <strong>Warden</strong> is an automated media library hygiene tool. It connects to your Radarr and Sonarr instances
+    to discover every movie and TV show in your collection, queries Tautulli (and Plex as a fallback) for watch history,
+    evaluates each item against a set of configurable rules, and automatically removes items that no longer belong in
+    your library — while giving you full control over the process.
+  </p>
+  <p>Key principles:</p>
+  <ul>
+    <li><strong>Non-destructive by default</strong> — Warden ships with Dry Run mode enabled. Nothing is deleted until you turn it off.</li>
+    <li><strong>Grace period built in</strong> — Condemned items sit on Death Row for a configurable number of days before deletion, giving you time to review and pardon anything that shouldn't be removed.</li>
+    <li><strong>Fully reversible until deletion</strong> — Pardoning an item permanently protects it from all future rule evaluations.</li>
+    <li><strong>Exclusion list integration</strong> — Deleted items are added to Radarr/Sonarr's import exclusion list so they aren't auto-imported again.</li>
+  </ul>
+
+  {# ── 2. How It Works ── #}
+  <h2 id="how-it-works">2. How It Works</h2>
+  <p>Each scan runs the following pipeline:</p>
+
+  <div class="flow">
+    <div class="flow-step"><strong>1. Fetch media</strong> — Radarr provides all movies; Sonarr provides all TV series</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><strong>2. Build watch maps</strong> — Tautulli (primary, threshold-filtered) and Plex (fallback) provide per-item watch history</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><strong>3. Evaluate rules</strong> — Each item is tested against every enabled rule; a match on any rule condemns the item</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><strong>4. Update database</strong> — All status changes are written in a single batch transaction</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><strong>5. Send notifications</strong> — Newly condemned items, reminders, and deletions are dispatched to configured agents</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><strong>6. Execute deletions</strong> — Items whose Death Row sentence has expired are deleted from Radarr/Sonarr (skipped in Dry Run)</div>
+  </div>
+
+  <h3>Item Status Lifecycle</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>Transitions to</th></tr></thead>
+    <tbody>
+      <tr><td><span class="status-ok">OK</span></td><td>No rules matched. Item is safe.</td><td>Condemned (if rules match on next scan)</td></tr>
+      <tr><td><span class="status-cond">Condemned</span></td><td>Matched one or more rules. Death row timer is running.</td><td>OK (if rules no longer match), Pardoned (manual), Deleted (timer expires)</td></tr>
+      <tr><td><span class="status-pard">Pardoned</span></td><td>Manually exempted. Never re-evaluated by rules.</td><td>No automatic transitions</td></tr>
+      <tr><td><span class="status-del">Deleted</span></td><td>Files removed from disk; added to import exclusion list.</td><td>No transitions (terminal state)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warn">
+    <p><strong>Important:</strong> If a condemned item no longer matches any rule (e.g. the rule is disabled, or watch data updated), it is automatically cleared back to OK on the next scan. Its death row timer resets if it is condemned again.</p>
+  </div>
+
+  {# ── 3. Getting Started ── #}
+  <h2 id="getting-started">3. Getting Started</h2>
+  <p>Follow these steps to get Warden running against your library.</p>
+
+  <h3>Step 1 — Connect your services</h3>
+  <p>Navigate to <strong>Settings → Connections</strong> and fill in the details for each service.</p>
+  <table>
+    <thead><tr><th>Service</th><th>What you need</th><th>Where to find it</th></tr></thead>
+    <tbody>
+      <tr><td>Radarr</td><td>Internal URL + API key</td><td>Radarr → Settings → General → Security → API Key</td></tr>
+      <tr><td>Sonarr</td><td>Internal URL + API key</td><td>Sonarr → Settings → General → Security → API Key</td></tr>
+      <tr><td>Plex</td><td>Internal URL + X-Plex-Token</td><td>See <a href="https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/" target="_blank">Plex support article</a></td></tr>
+      <tr><td>Tautulli</td><td>Internal URL + API key</td><td>Tautulli → Settings → Web Interface → API Key</td></tr>
+    </tbody>
+  </table>
+  <p>Use the <strong>Test</strong> button next to each service to verify the connection before saving.</p>
+  <div class="callout">
+    <p><strong>Docker tip:</strong> If Warden and your services run on the same Docker network, use their service names as hostnames (e.g. <code>http://radarr:7878</code>, <code>http://sonarr:8989</code>). Set <strong>Public URLs</strong> to your externally accessible addresses — these are used only for the "Open In" links in the UI.</p>
+  </div>
+
+  <h3>Step 2 — Review the default rules</h3>
+  <p>Warden ships with three starter rules. Go to <strong>Rules</strong> and review them before your first live scan.</p>
+  <table>
+    <thead><tr><th>Rule</th><th>What it targets</th></tr></thead>
+    <tbody>
+      <tr><td>Never Watched</td><td>Items added more than 18 months ago that have never been played</td></tr>
+      <tr><td>Old &amp; Low Rated</td><td>Items in library 5+ years, not watched in 18+ months, rated below 7.0</td></tr>
+      <tr><td>Very Old</td><td>Items in library 8+ years, not watched in 5+ years, rated below 8.0</td></tr>
+    </tbody>
+  </table>
+  <p>Disable any rule you don't want to apply and adjust the thresholds to suit your library. See <a href="#rules">Section 6</a> for a full explanation of all rule criteria.</p>
+
+  <h3>Step 3 — Set up a notification agent</h3>
+  <p>Go to <strong>Settings → Notification Agents → + Add Agent</strong> and configure at least one agent so you receive alerts before items are deleted. Discord webhooks are the most popular choice for home setups. See <a href="#notifications">Section 10</a> for full details.</p>
+
+  <h3>Step 4 — Run a test scan in Dry Run mode</h3>
+  <p>Click <strong>Run Scan</strong> on the Dashboard. Because Dry Run is enabled by default, nothing will be deleted. After the scan completes, check <strong>Death Row</strong> and <strong>Candidates</strong> to see which items would be condemned. Pardon anything that looks wrong.</p>
+
+  <h3>Step 5 — Disable Dry Run when you're ready</h3>
+  <p>Once you're confident in your rules, go to <strong>Settings</strong> and uncheck <strong>Dry Run mode</strong>. The orange <code>DRY RUN</code> badge in the navigation bar will disappear. From this point, items that complete their death row sentence will be permanently deleted.</p>
+  <div class="callout callout-danger">
+    <p><strong>Warning:</strong> Deletion is permanent. Files are removed from disk and the item is added to the Radarr/Sonarr import exclusion list. Always review Death Row regularly and pardon items you want to keep.</p>
+  </div>
+
+  {# ── 4. Account Security ── #}
+  <h2 id="account-security">4. Account Security</h2>
+  <p>All account security settings are managed from your <strong>Profile</strong> page, accessible by clicking your username in the top-right navigation menu.</p>
+
+  <h3>Username &amp; Password</h3>
+  <p>The <strong>Account Details</strong> section lets you change your display name. The <strong>Change Password</strong> section requires your current password before a new one is accepted. Passwords must be at least 8 characters.</p>
+
+  <h3>Two-Factor Authentication (TOTP)</h3>
+  <p>Warden supports time-based one-time passwords (TOTP) compatible with any standard authenticator app — Google Authenticator, Authy, 1Password, and others.</p>
+  <p>To enable 2FA:</p>
+  <ol>
+    <li>Go to <strong>Profile → Two-Factor Authentication → Set Up Two-Factor Auth</strong></li>
+    <li>Scan the QR code with your authenticator app</li>
+    <li>Enter the 6-digit code to confirm it's working</li>
+    <li>Save your backup codes — each can be used once if you lose access to your authenticator</li>
+  </ol>
+  <p>Once enabled, every login requires your password <em>and</em> a 6-digit code. To disable 2FA, you must confirm with both your password and a valid code.</p>
+  <div class="callout callout-warn">
+    <p><strong>Keep your backup codes safe.</strong> If you lose your authenticator and have no backup codes, you will be locked out. Store them in a password manager.</p>
+  </div>
+
+  <h3>Passkeys</h3>
+  <p>Passkeys are a modern, phishing-resistant alternative to username + password + 2FA. A single touch with Face ID, Touch ID, Windows Hello, or a hardware security key replaces the entire login flow.</p>
+
+  <h4>Prerequisites</h4>
+  <ul>
+    <li>Warden must be accessed over <strong>HTTPS</strong> — browsers will not allow passkeys over plain HTTP</li>
+    <li><strong>Passkey Domain</strong> must be set in <strong>Settings → General</strong> to the exact hostname you use (e.g. <code>warden.example.com</code>) — no <code>https://</code>, no port number</li>
+    <li>Self-signed certificates will not work — you need a certificate from a recognised CA (Let's Encrypt is free and works well)</li>
+  </ul>
+
+  <h4>Getting HTTPS</h4>
+  <p>If you're not already behind a reverse proxy or tunnel, there are two straightforward options:</p>
+
+  <h5>Option A — Cloudflare Tunnel (no ports to open)</h5>
+  <ol>
+    <li>Create a free Cloudflare account and add your domain</li>
+    <li>Install <code>cloudflared</code> on your host or as a Docker container</li>
+    <li>Create a tunnel in the Cloudflare Zero Trust dashboard and point it at <code>http://warden:8787</code> (or <code>http://localhost:8787</code> if not using Docker networking)</li>
+    <li>Cloudflare issues a trusted certificate automatically — no cert management needed</li>
+    <li>Set <strong>Passkey Domain</strong> to the public hostname Cloudflare assigns (e.g. <code>warden.example.com</code>)</li>
+  </ol>
+
+  <h5>Option B — Caddy reverse proxy (auto Let's Encrypt)</h5>
+  <p>Caddy provisions and renews Let's Encrypt certificates automatically. Add it alongside Warden in your <code>docker-compose.yml</code>:</p>
+  <pre><code>services:
+  caddy:
+    image: caddy:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    restart: unless-stopped
+
+volumes:
+  caddy_data:</code></pre>
+  <p>Create a <code>Caddyfile</code> next to your <code>docker-compose.yml</code>:</p>
+  <pre><code>warden.example.com {
+    reverse_proxy warden:8787
+}</code></pre>
+  <p>Replace <code>warden.example.com</code> with your actual domain. Ports 80 and 443 must be reachable from the internet for Let's Encrypt to issue a certificate. Set <strong>Passkey Domain</strong> to the same hostname.</p>
+
+  <div class="callout callout-info">
+    <p>Both options require a real domain name pointed at your server. Passkeys cannot be used on bare IP addresses or <code>localhost</code> (except <code>localhost</code> itself, which browsers treat as a special case for development).</p>
+  </div>
+
+  <h4>Registering a passkey</h4>
+  <ol>
+    <li>Set your Passkey Domain in <strong>Settings → General</strong> and save</li>
+    <li>Go to <strong>Profile → Passkeys</strong></li>
+    <li>Give the passkey a recognisable name (e.g. <em>MacBook Touch ID</em>, <em>YubiKey</em>)</li>
+    <li>Click <strong>Add a Passkey</strong> and follow your browser/device prompt</li>
+  </ol>
+  <p>You can register as many passkeys as you like — one per device is recommended so you can revoke them individually.</p>
+
+  <h4>Signing in with a passkey</h4>
+  <p>On the login page, click <strong>Sign in with a Passkey</strong>. Your browser will prompt you to authenticate with the device's biometrics or security key. No username or password is needed.</p>
+
+  <h4>Removing a passkey</h4>
+  <p>Go to <strong>Profile → Passkeys</strong>, find the passkey you want to remove, and click <strong>Remove</strong>. The passkey is immediately invalidated. Removing your only passkey does not affect password-based login.</p>
+
+  <div class="callout callout-warn">
+    <p><strong>Passkey Domain must not change.</strong> If you change the Passkey Domain setting after registering passkeys, all existing passkeys will stop working. Remove them all from Profile first, then update the domain and re-register.</p>
+  </div>
+
+  {# ── 5. Dashboard ── #}
+  <h2 id="dashboard">5. Dashboard</h2>
+  <p>The Dashboard gives you an at-a-glance summary of your library's health.</p>
+  <table>
+    <thead><tr><th>Widget</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Condemned Items</td><td>Number of items currently on death row and their total disk footprint</td></tr>
+      <tr><td>Last Scan</td><td>When the most recent scan started and completed</td></tr>
+      <tr><td>Scan History</td><td>Last 5 scan runs with condemned count, deleted count, and space freed</td></tr>
+      <tr><td>Run Scan button</td><td>Triggers an immediate scan outside of the scheduled window</td></tr>
+    </tbody>
+  </table>
+  <p>The scan is non-blocking — you can continue using the UI while it runs. The Dashboard reflects results as soon as the scan completes.</p>
+
+  {# ── 6. Rules ── #}
+  <h2 id="rules">6. Rules</h2>
+  <p>Rules define which items become candidates for deletion. An item must satisfy <strong>every criterion</strong> within a single rule to be condemned — all conditions within a rule are AND logic. A match on <em>any</em> rule is sufficient to condemn an item.</p>
+
+  <h3>Criteria reference</h3>
+  <table>
+    <thead><tr><th>Criterion</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Added months</td><td>Integer</td><td>Item must have been in the library for at least this many months. Warden uses the earliest known date across Radarr/Sonarr and Plex.</td></tr>
+      <tr><td>Unwatched months</td><td>Integer</td><td>Last watched date must be more than this many months ago — or the item must have never been watched at all.</td></tr>
+      <tr><td>Max rating</td><td>Decimal</td><td>IMDb (movies) or TVDB (shows) rating must be at or below this value. Leave blank to ignore rating.</td></tr>
+      <tr><td>Min rating</td><td>Decimal</td><td>Rating must be at or above this value. Useful to protect high-rated content from other criteria (combine with other rules).</td></tr>
+      <tr><td>Max plays</td><td>Integer</td><td>Total play count must be below this number. E.g. <code>1</code> targets items watched exactly once long ago.</td></tr>
+      <tr><td>Min size (GB)</td><td>Decimal</td><td>File must be at least this size. Target only large files occupying disproportionate disk space.</td></tr>
+      <tr><td>Exclude genres</td><td>Comma-separated</td><td>Items with any of these genres are skipped by this rule. E.g. <code>Animation, Documentary</code>.</td></tr>
+      <tr><td>Include genres</td><td>Comma-separated</td><td>Only items containing at least one of these genres are evaluated. All other genres are ignored by this rule.</td></tr>
+      <tr><td>Media type</td><td>Movie / Show / Both</td><td>Restrict this rule to movies, TV shows, or both.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Rule priority &amp; ordering</h3>
+  <p>Rules are evaluated in <strong>Sort Order</strong> sequence (set when editing a rule). The order only affects which rule name appears first in the "Rules Matched" column — all matching rules are recorded. Edit the <strong>Sort Order</strong> field to control which rule is displayed as the primary match.</p>
+
+  <h3>Example rules</h3>
+  <table>
+    <thead><tr><th>Goal</th><th>Settings</th></tr></thead>
+    <tbody>
+      <tr><td>Remove movies never watched after 2 years</td><td>Added months: 24, Unwatched months: 24, Media type: Movie</td></tr>
+      <tr><td>Remove large files not touched in 3 years</td><td>Added months: 36, Unwatched months: 36, Min size: 20</td></tr>
+      <tr><td>Protect all Animation regardless of other rules</td><td>Create a rule with Include genres: Animation and Max rating: 10 — this alone won't condemn anything, but other rules should Exclude genres: Animation</td></tr>
+      <tr><td>Clear out low-rated old content</td><td>Added months: 48, Unwatched months: 12, Max rating: 6.5</td></tr>
+    </tbody>
+  </table>
+
+  {# ── 7. Death Row ── #}
+  <h2 id="death-row">7. Death Row</h2>
+  <p>Death Row shows every item that has been condemned and is awaiting deletion. The countdown timer is based on the <strong>Death Row Days</strong> setting (default 30 days). An item's timer starts the day it is first condemned and does not reset if it continues to match rules on subsequent scans.</p>
+
+  <h3>Days Left column</h3>
+  <p>Items with 7 or fewer days left are highlighted in red. Items due for deletion <em>today</em> show "Today" — they will be deleted on the next scan that runs in live mode.</p>
+
+  <h3>Sorting</h3>
+  <p>Click any column header to sort by that field. Click again to reverse the direction. The default sort is by Days Left ascending (soonest deletion first).</p>
+
+  <h3>Pardoning an item</h3>
+  <p>To permanently protect an item, enter an optional reason in the text box next to it and click <strong>Pardon</strong>. Pardoned items:</p>
+  <ul>
+    <li>Are moved to <span class="status-pard">Pardoned</span> status immediately</li>
+    <li>Are never re-evaluated by any rule on future scans</li>
+    <li>Remain visible in the Library with a green "Pardoned" badge</li>
+    <li>Can still be viewed in detail, including all watch statistics</li>
+  </ul>
+  <div class="callout">
+    <p><strong>Tip:</strong> There is no "unpardon" button in the current UI. If you pardon an item by mistake, it will simply be protected forever — which in practice is harmless.</p>
+  </div>
+
+  {# ── 8. Candidates ── #}
+  <h2 id="candidates">8. Candidates</h2>
+  <p>The Candidates page shows the same condemned items as Death Row, but grouped by the rule that matched them. This is useful for auditing your rules: you can quickly see which rule is responsible for the most deletions and whether the results look correct.</p>
+  <p>Each rule group has its own sortable table. Use the column headers to sort within each group. The sort applies to all groups simultaneously.</p>
+  <div class="callout">
+    <p><strong>Candidates vs Death Row:</strong> These pages show identical items. Candidates groups by rule for rule auditing; Death Row groups all items together with the countdown timer for deletion scheduling.</p>
+  </div>
+
+  {# ── 9. Library ── #}
+  <h2 id="library">9. Library</h2>
+  <p>The Library is a browseable, searchable, sortable view of your entire media collection as known to Warden.</p>
+
+  <h3>Filters</h3>
+  <table>
+    <thead><tr><th>Filter</th><th>Options</th></tr></thead>
+    <tbody>
+      <tr><td>Search</td><td>Free-text title search (case-insensitive)</td></tr>
+      <tr><td>Type</td><td>All / Movies / TV Shows</td></tr>
+      <tr><td>Status</td><td>All active (default, hides deleted) / OK / Condemned / Pardoned / Deleted</td></tr>
+      <tr><td>Watched</td><td>All / Watched (at least 1 play) / Never watched</td></tr>
+    </tbody>
+  </table>
+  <p>Deleted items are hidden by default. Select <strong>Deleted</strong> from the Status filter to view previously removed content.</p>
+
+  <h3>Sorting</h3>
+  <p>Click any column header (Title, Year, Rating, Size, Added, Last Watched, Plays, Status) to sort by that field. Click again to reverse. Sort is preserved in the URL so you can bookmark views.</p>
+
+  <h3>Item detail page</h3>
+  <p>Click any item's title to open its detail page. This shows:</p>
+  <ul>
+    <li><strong>Watch stats</strong> — total plays, last watched date, maximum watch percentage, size on disk</li>
+    <li><strong>Library info</strong> — added date, runtime, certification, studio/network, series status</li>
+    <li><strong>File info</strong> — quality profile, size, file path</li>
+    <li><strong>Warden status</strong> — matched rules, death row date, days remaining, pardon form (for condemned items)</li>
+    <li><strong>Open In links</strong> — quick links to IMDb, TMDB/TVDB, Radarr/Sonarr, and Plex (hidden for deleted items)</li>
+  </ul>
+
+  {# ── 10. Notifications ── #}
+  <h2 id="notifications">10. Notification Agents</h2>
+  <p>Warden supports multiple independent notification agents. Each agent has its own credentials, enabled/disabled state, event subscriptions, and (for reminders) day thresholds. You can have as many agents as you like — for example, a Discord agent for condemned items going to one channel and a Pushover agent for deletions going to your phone.</p>
+
+  <h3>Managing agents</h3>
+  <p>Go to <strong>Settings → Notification Agents</strong>. From there you can:</p>
+  <ul>
+    <li>Click <strong>+ Add Agent</strong> to create a new agent (you'll be prompted to choose the type first)</li>
+    <li>Click <strong>Test</strong> to send a test message to an existing agent</li>
+    <li>Click <strong>Edit</strong> to modify an agent's configuration</li>
+    <li>Click <strong>Enable / Disable</strong> to temporarily silence an agent without deleting it</li>
+    <li>Click <strong>Delete</strong> to permanently remove an agent</li>
+  </ul>
+
+  <h3>Agent types</h3>
+
+  <h4>Discord</h4>
+  <p>Sends rich embed messages to a Discord channel via a webhook. Messages are colour-coded by event type and include item lists grouped by rule.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Webhook URL</td><td>The full Discord webhook URL. Create one in Discord: Channel Settings → Integrations → Webhooks → New Webhook.</td></tr>
+      <tr><td>Mention (optional)</td><td>A Discord user or role mention prepended to condemned and deletion messages. Format: <code>&lt;@USER_ID&gt;</code> or <code>&lt;@&amp;ROLE_ID&gt;</code>.</td></tr>
+      <tr><td>Bot Avatar URL (optional)</td><td>URL of an image to use as the webhook's avatar, overriding the default.</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Pushover</h4>
+  <p>Sends push notifications to your Pushover-connected devices.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>User Key</td><td>Your Pushover user or group key, found at pushover.net</td></tr>
+      <tr><td>API Token</td><td>The API token for your Pushover application (create one at pushover.net/apps/build)</td></tr>
+      <tr><td>Priority</td><td>Lowest / Low / Normal / High — controls notification urgency on your device</td></tr>
+      <tr><td>Device (optional)</td><td>Specific device name to target. Leave blank to notify all your devices.</td></tr>
+    </tbody>
+  </table>
+
+  <h4>ntfy</h4>
+  <p>Sends notifications via the <a href="https://ntfy.sh" target="_blank">ntfy</a> push notification service. Works with the public ntfy.sh server or your own self-hosted instance.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Server URL</td><td>Base URL of your ntfy server. Use <code>https://ntfy.sh</code> for the public service.</td></tr>
+      <tr><td>Topic</td><td>The ntfy topic name to publish to (acts like a channel). Choose something unique.</td></tr>
+      <tr><td>Access Token (optional)</td><td>Required only if your topic is access-controlled. Generate in your ntfy account settings.</td></tr>
+      <tr><td>Priority</td><td>Min / Low / Default / High / Urgent</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Apprise</h4>
+  <p>Routes notifications through a self-hosted <a href="https://github.com/caronc/apprise-api" target="_blank">Apprise API</a> server, which supports 100+ notification services.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Server URL</td><td>Base URL of your Apprise API server (e.g. <code>http://apprise:8000</code>)</td></tr>
+      <tr><td>Tags (optional)</td><td>Comma-separated Apprise tags to target. Leave blank to notify all configured URLs in Apprise.</td></tr>
+    </tbody>
+  </table>
+
+  <h4>JSON Webhook</h4>
+  <p>Posts a raw JSON payload to any HTTP endpoint — useful for home automation, custom scripts, or services not covered by the other agent types.</p>
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>URL</td><td>The endpoint to POST (or GET) to</td></tr>
+      <tr><td>HTTP Method</td><td>POST (default) or GET</td></tr>
+      <tr><td>Additional Headers (optional)</td><td>JSON object of extra headers. Example: <code>{"Authorization": "Bearer token123"}</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Events</h3>
+  <table>
+    <thead><tr><th>Event</th><th>When it fires</th></tr></thead>
+    <tbody>
+      <tr><td>🚨 New items condemned</td><td>An item is placed on death row for the first time in this scan (not on re-scans where it was already condemned)</td></tr>
+      <tr><td>⏳ Death row reminders</td><td>A condemned item hits one of the configured day thresholds before its deletion date. Each threshold fires at most once per item per death row sentence.</td></tr>
+      <tr><td>🗑️ Items deleted</td><td>One or more items are deleted (or would be deleted in Dry Run). Includes total space freed.</td></tr>
+      <tr><td>✅ Clean scan</td><td>A scan completes with zero newly condemned items</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Death row reminders</h3>
+  <p>When you enable the <strong>Death row reminders</strong> event on an agent, a text field appears below the checkbox labelled <em>"At … days remaining"</em>. Enter a comma-separated list of day thresholds, e.g. <code>7, 3, 1</code>. Warden will send a reminder notification each time a condemned item crosses one of these thresholds.</p>
+  <p>Each threshold fires <em>once per item per condemnation</em>. If an item is cleared (rules no longer match) and then condemned again on a future scan, the reminder thresholds reset and will fire again.</p>
+  <div class="callout">
+    <p><strong>Example:</strong> Set thresholds to <code>7, 1</code>. An item condemned today with a 30-day death row period will trigger a "7 days left" reminder on day 23 and a "1 day left" reminder on day 29.</p>
+  </div>
+
+  {# ── 11. Settings ── #}
+  <h2 id="settings">11. Settings Reference</h2>
+
+  <h3>General</h3>
+  <table>
+    <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>Dry Run mode</td><td>On</td><td>When enabled, Warden condemns items and sends notifications but never deletes files. The orange DRY RUN badge is shown in the navigation bar. Disable only when you are confident your rules are correct.</td></tr>
+      <tr><td>Watch threshold %</td><td>80%</td><td>The minimum percentage of a video that must be watched (in a single session) for it to count as "watched" in Tautulli data. Does not apply to Plex fallback data, which uses a fixed ~90% threshold internally.</td></tr>
+      <tr><td>TV watched definition</td><td>Any episode</td><td>How Warden determines if a TV series counts as "watched". <strong>Any episode</strong> — watched if any single episode has been played. <strong>50% of episodes</strong> — more than half of all episodes must have been played. <strong>All episodes</strong> — every episode must have been played.</td></tr>
+      <tr><td>Death Row Days</td><td>30</td><td>Number of days an item stays on death row before deletion. The timer starts on the day the item is first condemned. Changing this value affects all existing condemned items immediately.</td></tr>
+      <tr><td>Timezone</td><td>UTC</td><td>Used for formatting timestamps in the UI and for interpreting the scan schedule.</td></tr>
+      <tr><td>Scan schedule</td><td>Daily at 08:00</td><td>How often Warden automatically runs a scan. Set the interval, unit (days/weeks), and time of day. Changes take effect immediately without restarting.</td></tr>
+      <tr><td>Passkey Domain</td><td>(empty)</td><td>The hostname you use to access Warden, e.g. <code>warden.example.com</code>. Must be the exact domain in your browser's address bar — no <code>https://</code>, no port number. Required before passkeys can be registered or used. See <a href="#account-security">Section 4</a>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Connections</h3>
+  <p>Each connection has an <strong>Internal URL</strong> (used by Warden to call the API) and an optional <strong>Public URL</strong> (used to generate clickable "Open In" links in the UI). If you access your services through a reverse proxy with a different address than the internal Docker network, set the Public URL to the address you use in your browser.</p>
+  <table>
+    <thead><tr><th>Service</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Radarr</td><td>Movies only. Warden uses Radarr to list films, fetch metadata, delete movies, and add to the exclusion list.</td></tr>
+      <tr><td>Sonarr</td><td>TV shows only. Same role as Radarr but for series.</td></tr>
+      <tr><td>Plex</td><td>Used as a fallback watch history source when Tautulli has no data for an item (e.g. watched before Tautulli was installed). Also used to fetch library add dates and Plex metadata keys for deep links.</td></tr>
+      <tr><td>Tautulli</td><td>Primary watch history source. Provides precise per-session watch percentages filtered to your configured threshold. Strongly recommended over Plex-only setups.</td></tr>
+    </tbody>
+  </table>
+
+  {# ── 12. Support Tools ── #}
+  <h2 id="support-tools">12. Support Tools</h2>
+  <p>The <strong>Support</strong> section (linked in the top navigation) contains four tools for troubleshooting and maintenance.</p>
+
+  <h3>Documentation</h3>
+  <p>This guide.</p>
+
+  <h3>Audit Log</h3>
+  <p>A chronological record of significant actions taken in Warden — settings changes, scans triggered, items pardoned, passkeys registered, and so on. Each entry shows a timestamp, action description, and the IP address it originated from. The audit log is useful for understanding what changed and when, especially in a shared environment.</p>
+  <p>The log retains the most recent 200 entries by default and is displayed newest-first.</p>
+
+  <h3>Server Log</h3>
+  <p>The last 500 lines of Warden's application log output, auto-refreshing every 10 seconds. This is the first place to look when diagnosing connection errors, scan failures, or notification delivery issues. Errors appear in red; warnings in yellow.</p>
+  <p>You can also access the full log stream outside the UI with <code>docker logs -f &lt;container_name&gt;</code>.</p>
+
+  <h3>Backup &amp; Restore</h3>
+  <p>Two backup types are available:</p>
+  <table>
+    <thead><tr><th>Type</th><th>What's included</th><th>Use for</th></tr></thead>
+    <tbody>
+      <tr><td>Config backup (.json)</td><td>Settings, rules, and notification agents</td><td>Routine backups, migrating configuration to a new instance</td></tr>
+      <tr><td>Full backup (.db)</td><td>Everything — config, media library, scan history, audit log</td><td>Before major upgrades, disaster recovery</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Restoring a config backup</h4>
+  <p>Upload a <code>.json</code> config backup using the Restore form on the Backup page. This replaces your current settings, rules, and notification agents. Account credentials (username, password, 2FA, passkeys) are never overwritten by a config restore.</p>
+
+  <h4>Restoring a full backup</h4>
+  <p>Full database restores must be done at the container level — the UI cannot replace the live database file:</p>
+  <ol>
+    <li>Stop the Warden container</li>
+    <li>Replace <code>/data/warden.db</code> with your backup file</li>
+    <li>Start the container again</li>
+  </ol>
+
+  {# ── 13. Troubleshooting ── #}
+  <h2 id="troubleshooting">13. Troubleshooting</h2>
+
+  <h3>Items aren't being condemned</h3>
+  <ul>
+    <li>Check that at least one rule is <strong>enabled</strong> (Rules page — disabled rules are greyed out)</li>
+    <li>Verify your criteria are realistic for your library. Open the Library page, find an item you expect to be condemned, and check its Added date, Last Watched, and Rating against your rule thresholds.</li>
+    <li>Make sure a scan has completed after you saved your rule changes. The scan runs on a schedule; use <strong>Run Scan</strong> on the Dashboard to trigger one immediately.</li>
+  </ul>
+
+  <h3>Watch history shows "Never" for items I've watched</h3>
+  <ul>
+    <li>Check the Tautulli connection (Settings → Connections → Test). If Tautulli is unreachable, Warden falls back to Plex, which may not have history for all items.</li>
+    <li>Tautulli only records sessions from the date it was installed. Items watched before Tautulli was set up will show "Never" in Tautulli — Plex's <code>lastViewedAt</code> is used as a fallback in this case.</li>
+    <li>The watch threshold may be set too high. If you stopped a video at 79% and your threshold is 80%, it won't count. Lower the threshold in Settings.</li>
+  </ul>
+
+  <h3>Notifications aren't being sent</h3>
+  <ul>
+    <li>Use the <strong>Test</strong> button on the agent in Settings → Notification Agents. This sends a test message immediately and shows any error inline.</li>
+    <li>Ensure the agent is <strong>enabled</strong> (the Enable/Disable button on the agent card).</li>
+    <li>Make sure the relevant event is checked in the agent's event list.</li>
+    <li>Check the <strong>Server Log</strong> (Support → Server Log) for error messages from the notification dispatcher.</li>
+    <li>For Discord: verify the webhook URL is valid and the webhook hasn't been deleted in Discord.</li>
+    <li>For ntfy: if using a protected topic, ensure the access token is correct.</li>
+  </ul>
+
+  <h3>An item keeps getting condemned after I pardon it</h3>
+  <p>This should not happen — pardoned items are permanently exempt from all rule evaluation. If you believe this is occurring, check the Audit Log (Support → Audit Log) for any "Item pardoned" entries and verify the pardon was saved successfully.</p>
+
+  <h3>Scan completes instantly with no results</h3>
+  <ul>
+    <li>Check that Radarr and Sonarr are connected and returning data (Settings → Connections → Test).</li>
+    <li>Open the Server Log — it will show how many items were fetched from Radarr/Sonarr and how many rules were evaluated.</li>
+  </ul>
+
+  <h3>Added dates look wrong (items appear newer than they are)</h3>
+  <p>Warden takes the <em>minimum</em> date across Radarr/Sonarr, Plex library added date, and Plex last-viewed date. This guards against library resets pushing dates forward. If an item still shows an incorrect date, it may mean neither Radarr/Sonarr nor Plex has an accurate history for it.</p>
+
+  <h3>Deleted items still appear in Radarr/Sonarr</h3>
+  <p>Warden deletes the item and adds it to the import exclusion list via the Radarr/Sonarr API. If the item reappears, check whether something else (e.g. an import list or auto-search) is re-adding it. The exclusion list should prevent this, but if the TMDB/TVDB ID differs from what Warden recorded, the exclusion may not match.</p>
+
+  <h3>Passkey registration or sign-in fails</h3>
+  <ul>
+    <li>Confirm <strong>Passkey Domain</strong> in Settings → General is set to your exact hostname (e.g. <code>warden.example.com</code>) — no <code>https://</code> prefix, no port number.</li>
+    <li>Warden must be accessed over HTTPS with a trusted certificate. Cloudflare Tunnel and Caddy both satisfy this. Self-signed certs will not work.</li>
+    <li>The domain in the browser's address bar must exactly match the Passkey Domain setting. Passkeys registered on one URL will not work on another (e.g. registering on <code>warden.example.com</code> then trying to sign in via an IP address will fail).</li>
+    <li>If you changed the Passkey Domain after registering passkeys, remove all existing passkeys from Profile and re-register them.</li>
+  </ul>
+
+  <h3>Where are the log files?</h3>
+  <p>Warden logs to stdout. In Docker, view them with <code>docker logs -f &lt;container_name&gt;</code>. Within the UI, go to <strong>Support → Server Log</strong> to see the last 500 log lines with auto-refresh.</p>
+
+</div></div>
+{% endblock %}

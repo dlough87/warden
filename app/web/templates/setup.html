@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warden — Setup</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+      --text: #e2e8f0; --muted: #8892a4; --accent: #e74c3c;
+      --green: #2ecc71; --radius: 8px; --font: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--text); font-family: var(--font);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .setup-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 40px 36px; width: 100%; max-width: 420px;
+    }
+    .brand {
+      font-size: 1.6rem; font-weight: 700; color: var(--text);
+      letter-spacing: 3px; text-align: center; margin-bottom: 8px;
+    }
+    .tagline {
+      text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 8px;
+    }
+    .welcome {
+      text-align: center; color: var(--text); font-size: 0.95rem;
+      margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+    }
+    .welcome strong { color: var(--accent); }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    input[type="text"], input[type="password"] {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 1rem;
+      padding: 10px 14px; outline: none; transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus { border-color: var(--accent); }
+    .field { margin-bottom: 20px; }
+    .btn {
+      width: 100%; background: var(--accent); color: white; border: none;
+      border-radius: var(--radius); font-size: 1rem; font-weight: 600;
+      padding: 11px; cursor: pointer; transition: opacity 0.15s; margin-top: 4px;
+    }
+    .btn:hover { opacity: 0.85; }
+    .error {
+      background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.4);
+      border-radius: var(--radius); color: #e74c3c; font-size: 0.875rem;
+      padding: 10px 14px; margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-card">
+    <div class="brand">
+  <svg width="32" height="36" viewBox="0 0 32 32" style="display:block;margin:0 auto 8px" aria-hidden="true"><path d="M16 2L29 7v10c0 7.5-5.5 13.5-13 15C4.5 30.5 3 24.5 3 17V7z" fill="#e74c3c"/><polyline points="9,13 12,22 16,17 20,22 23,13" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/></svg>
+  WARDEN
+</div>
+    <div class="tagline">Media Library Manager</div>
+    <div class="welcome">
+      <strong>Welcome!</strong> Set an admin password to secure your Warden instance.
+      This only needs to be done once.
+    </div>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/setup">
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autofocus autocomplete="username"
+               value="{{ username or '' }}">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password">
+        <div class="hint">Minimum 8 characters.</div>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirm Password</label>
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn">Create Account &amp; Sign In</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %} — Backup & Restore{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Support</h1>
+</div>
+
+{# ── Sub-nav ── #}
+<div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+  <a href="/support/guide" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Documentation</a>
+  <a href="/support/audit" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Audit Log</a>
+  <a href="/support/logs"  style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Server Log</a>
+  <a href="/support/backup" style="padding:8px 16px;font-size:0.9rem;color:var(--text);border-bottom:2px solid var(--accent);text-decoration:none;margin-bottom:-1px">Backup</a>
+</div>
+
+{% if restore_success %}
+<div class="alert alert-success" style="margin-bottom:24px">✓ {{ restore_success }}</div>
+{% endif %}
+
+<div class="card">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start">
+
+    {# ── Create Backup ── #}
+    <div>
+      <h2 style="font-size:1rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)">Create Backup</h2>
+
+      <div style="margin-bottom:24px">
+        <div style="font-weight:600;font-size:0.95rem;margin-bottom:6px">Config Backup</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Settings, rules, and notification agents exported as JSON. Use for routine backups and migrations. Does not include media library data or scan history.
+        </p>
+        <form method="POST" action="/support/backup/config" style="display:block">
+          <button type="submit" class="btn btn-ghost btn-sm">Download (.json)</button>
+        </form>
+      </div>
+
+      <div style="padding-top:20px;border-top:1px solid var(--border)">
+        <div style="font-weight:600;font-size:0.95rem;margin-bottom:6px">Full Backup</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          The entire database including media library, scan history, and audit log. Use before major upgrades or for disaster recovery.
+        </p>
+        <a href="/support/backup/full" class="btn btn-ghost btn-sm">Download (.db)</a>
+      </div>
+    </div>
+
+    {# ── Restore ── #}
+    <div>
+      <h2 style="font-size:1rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)">Restore Config</h2>
+
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:20px;line-height:1.6">
+        Restores settings, rules, and notification agents from a config JSON backup. Account credentials are never overwritten. Media library data is not affected.
+      </p>
+
+      {% if restore_error %}
+      <div style="background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:var(--radius);color:#e74c3c;font-size:0.875rem;padding:10px 14px;margin-bottom:16px">{{ restore_error }}</div>
+      {% endif %}
+
+      <form method="POST" action="/support/restore" enctype="multipart/form-data" style="display:block">
+        <div class="form-group">
+          <label for="backup_file">Config backup file (.json)</label>
+          <input type="file" id="backup_file" name="backup_file" accept=".json" required style="padding:6px 10px;cursor:pointer">
+        </div>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:20px;color:var(--muted)">
+          <input type="checkbox" name="confirm" required style="width:auto;margin-top:2px;flex-shrink:0">
+          <span style="font-size:0.85rem">I understand this will replace my current settings, rules, and notification agents.</span>
+        </label>
+        <button type="submit" class="btn btn-ghost btn-sm">Restore</button>
+      </form>
+    </div>
+
+  </div>
+
+  {# ── Full Backup Instructions ── #}
+  <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border)">
+    <h2 style="font-size:1rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Restoring a Full Backup</h2>
+    <p style="font-size:0.875rem;color:var(--muted);line-height:1.6">
+      Stop the container, replace <code style="background:rgba(255,255,255,0.07);color:var(--text);padding:2px 6px;border-radius:4px;font-size:0.85em">/data/warden.db</code> with your backup file, then restart. All data including media library and scan history will be restored.
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %} — Candidates{% endblock %}
+
+{% block head %}
+<style>
+  .rule-tabs-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .rule-tabs-wrap::-webkit-scrollbar { display: none; }
+  .rule-tabs {
+    display: flex;
+    gap: 0;
+    white-space: nowrap;
+    padding-bottom: 0;
+  }
+  .rule-tab {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .rule-tab:hover { color: var(--text); }
+  .rule-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .rule-panel { display: none; }
+  .rule-panel.active { display: block; }
+</style>
+{% endblock %}
+
+{% macro candidates_table(items) %}
+<table>
+  <thead>
+    <tr>
+      <th><a href="{{ sort_url('title') }}" style="color:inherit">Title {% if sort=='title' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+      <th>Type</th>
+      <th><a href="{{ sort_url('imdb_rating') }}" style="color:inherit">Rating {% if sort=='imdb_rating' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+      <th><a href="{{ sort_url('size_bytes') }}" style="color:inherit">Size {% if sort=='size_bytes' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+      <th><a href="{{ sort_url('added_date') }}" style="color:inherit">Added {% if sort=='added_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+      <th><a href="{{ sort_url('last_watched_date') }}" style="color:inherit">Last Watched {% if sort=='last_watched_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+      <th><a href="{{ sort_url('total_plays') }}" style="color:inherit">Plays {% if sort=='total_plays' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for item in items %}
+  <tr>
+    <td><a href="/library/{{ item.id | urlencode }}" style="color:var(--text);font-weight:600" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text)'">{{ item.title }}</a> {% if item.year %}<span style="color:var(--muted)">({{ item.year }})</span>{% endif %}</td>
+    <td>
+      {% if item.media_type == "movie" %}<span class="badge badge-movie">Movie</span>
+      {% else %}<span class="badge badge-show">Show</span>{% endif %}
+    </td>
+    <td>{{ "%.1f"|format(item.imdb_rating) if item.imdb_rating else "—" }}</td>
+    <td>{{ item.size_fmt }}</td>
+    <td>{{ item.added_fmt }}</td>
+    <td>{{ item.watched_fmt }}</td>
+    <td>{{ item.total_plays or 0 }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% block content %}
+<div class="section-header">
+  <h1>Candidates <span style="color:var(--muted);font-weight:400;font-size:1rem">({{ total_count }} items — {{ total_size }})</span></h1>
+</div>
+
+{% if not by_rule %}
+<div class="card"><p class="empty">Nothing on death row. Library is clean! 🎉</p></div>
+{% else %}
+
+{# ── Tab bar ── #}
+<div class="rule-tabs-wrap">
+  <div class="rule-tabs">
+    <button class="rule-tab active" onclick="switchRuleTab('__all__', this)" type="button">All</button>
+    {% for rule_name in by_rule.keys() %}
+    <button class="rule-tab" onclick="switchRuleTab('rule-{{ loop.index }}', this)" type="button">
+      {{ rule_name }} <span style="font-size:0.78rem;color:var(--muted)">({{ by_rule[rule_name]|length }})</span>
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── All panel ── #}
+<div id="panel-__all__" class="rule-panel active">
+  {% for rule_name, items in by_rule.items() %}
+  <div class="card" style="margin-bottom:20px">
+    <h2 style="margin-bottom:16px">{{ rule_name }} <span style="color:var(--muted);font-weight:400">({{ items|length }})</span></h2>
+    {{ candidates_table(items) }}
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Per-rule panels ── #}
+{% for rule_name, items in by_rule.items() %}
+<div id="panel-rule-{{ loop.index }}" class="rule-panel">
+  <div class="card">
+    <h2 style="margin-bottom:16px">{{ rule_name }} <span style="color:var(--muted);font-weight:400">({{ items|length }})</span></h2>
+    {{ candidates_table(items) }}
+  </div>
+</div>
+{% endfor %}
+
+{% endif %}
+
+<script>
+function updateSortLinks(panelId) {
+  document.querySelectorAll('a[href*="/candidates?"]').forEach(function(a) {
+    a.href = a.href.split('#')[0] + '#' + panelId;
+  });
+}
+
+function switchRuleTab(panelId, btn) {
+  document.querySelectorAll('.rule-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.rule-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('panel-' + panelId).classList.add('active');
+  btn.classList.add('active');
+  btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  history.replaceState(null, '', '#' + panelId);
+  updateSortLinks(panelId);
+}
+
+// Restore tab from URL hash on load
+(function() {
+  var hash = location.hash.replace('#', '');
+  var activated = false;
+  if (hash) {
+    var panel = document.getElementById('panel-' + hash);
+    if (panel) {
+      document.querySelectorAll('.rule-tab').forEach(function(btn) {
+        if ((btn.getAttribute('onclick') || '').indexOf("'" + hash + "'") !== -1) {
+          switchRuleTab(hash, btn);
+          activated = true;
+        }
+      });
+    }
+  }
+  if (!activated) updateSortLinks('__all__');
+})();
+</script>
+{% endblock %}

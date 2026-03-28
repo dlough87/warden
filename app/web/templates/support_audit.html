@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %} — Audit Log{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Support</h1>
+</div>
+
+{# ── Sub-nav ── #}
+<div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0">
+  <a href="/support/guide" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Documentation</a>
+  <a href="/support/audit" style="padding:8px 16px;font-size:0.9rem;color:var(--text);border-bottom:2px solid var(--accent);text-decoration:none;margin-bottom:-1px">Audit Log</a>
+  <a href="/support/logs"  style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Server Log</a>
+  <a href="/support/backup" style="padding:8px 16px;font-size:0.9rem;color:var(--muted);border-bottom:2px solid transparent;text-decoration:none;margin-bottom:-1px">Backup</a>
+</div>
+
+<div class="card" style="padding:0;overflow-x:auto">
+  {% if entries %}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:180px">Time</th>
+        <th>Action</th>
+        <th>Detail</th>
+        <th style="width:120px">IP</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for e in entries %}
+    <tr>
+      <td style="color:var(--muted);font-size:0.8rem;white-space:nowrap">{{ e.timestamp[:19].replace('T',' ') }}</td>
+      <td style="font-weight:500">{{ e.action }}</td>
+      <td style="color:var(--muted);font-size:0.85rem">{{ e.detail or '—' }}</td>
+      <td style="color:var(--muted);font-size:0.8rem">{{ e.ip or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty" style="padding:32px">No audit events recorded yet. Events are logged when settings, rules, notification agents, or pardons are changed.</p>
+  {% endif %}
+</div>
+{% endblock %}

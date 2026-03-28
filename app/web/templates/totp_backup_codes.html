@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %} — Backup Codes{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Two-Factor Authentication Enabled</h1>
+</div>
+
+<div class="card" style="max-width: 520px;">
+  <div style="background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:24px;display:flex;gap:10px;align-items:flex-start;">
+    <span style="color:var(--green);font-size:1.2rem;line-height:1;">✓</span>
+    <div>
+      <div style="color:var(--green);font-weight:600;margin-bottom:2px;">Authenticator app verified</div>
+      <div style="color:var(--muted);font-size:0.875rem;">Two-factor authentication is now active on your account.</div>
+    </div>
+  </div>
+
+  <h2>Save Your Backup Codes</h2>
+  <p style="color:var(--muted);font-size:0.9rem;margin-bottom:8px;">
+    Store these codes somewhere safe. Each can be used <strong style="color:var(--text);">once</strong> to sign in if you lose access to your authenticator app.
+  </p>
+  <p style="color:var(--accent);font-size:0.85rem;font-weight:600;margin-bottom:20px;">
+    ⚠ These codes will not be shown again.
+  </p>
+
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;">
+    {% for code in backup_codes %}
+    <code style="font-size:1rem;letter-spacing:2px;color:var(--text);">{{ code }}</code>
+    {% endfor %}
+  </div>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <button onclick="copyBackupCodes()" class="btn" style="background:var(--border);color:var(--text);flex:1;">
+      Copy All Codes
+    </button>
+    <a href="/profile" class="btn" style="flex:1;text-align:center;text-decoration:none;">
+      Done
+    </a>
+  </div>
+</div>
+
+<script>
+function copyBackupCodes() {
+  var codes = {{ backup_codes | tojson }};
+  navigator.clipboard.writeText(codes.join('\n')).then(function() {
+    var btn = document.querySelector('button[onclick="copyBackupCodes()"]');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy All Codes'; }, 2000);
+  });
+}
+</script>
+{% endblock %}

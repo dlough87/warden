@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% set is_new = not agent.get("id") %}
+{% set atype = agent.get("agent_type", "") %}
+{% set cfg = agent.get("config_dict", {}) %}
+{% set evts = agent.get("events_list", []) %}
+{% block title %} — {{ "Add" if is_new else "Edit" }} Notification Agent{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>{{ "Add" if is_new else "Edit" }} {{ agent_types.get(atype, {}).get("label", "Notification Agent") }}</h1>
+  <a href="/settings#notifications" class="btn btn-ghost">Cancel</a>
+</div>
+
+<form method="POST" action="{{ action }}">
+  <input type="hidden" name="agent_type" value="{{ atype }}">
+
+  <div class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Agent Name</label>
+        <input type="text" id="name" name="name" required
+               value="{{ agent.get('name', agent_types.get(atype, {}).get('label', '')) }}"
+               placeholder="e.g. Discord — Media Alerts">
+        <p class="form-hint">A label to identify this agent in the UI.</p>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px">Configuration</h3>
+
+      {# ── Discord ── #}
+      {% if atype == "discord" %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="webhook_url">Webhook URL</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="webhook_url" name="webhook_url" required style="flex:1"
+                   value="{{ cfg.get('webhook_url', '') }}" placeholder="https://discord.com/api/webhooks/…">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('webhook_url', this)">Show</button>
+          </div>
+          <p class="form-hint">Discord incoming webhook URL.</p>
+        </div>
+        <div class="form-group">
+          <label for="mention">Mention (optional)</label>
+          <input type="text" id="mention" name="mention"
+                 value="{{ cfg.get('mention', '') }}"
+                 placeholder="e.g. &lt;@123456&gt; or &lt;@&amp;987654&gt;">
+          <p class="form-hint">Prepended to condemned &amp; deletion messages. <code>&lt;@USER_ID&gt;</code> or <code>&lt;@&amp;ROLE_ID&gt;</code>.</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="avatar_url">Bot Avatar URL (optional)</label>
+          <input type="text" id="avatar_url" name="avatar_url"
+                 value="{{ cfg.get('avatar_url', '') }}"
+                 placeholder="https://example.com/warden.png">
+          <p class="form-hint">Overrides the webhook's default avatar.</p>
+        </div>
+        <div class="form-group"></div>
+      </div>
+
+      {# ── Pushover ── #}
+      {% elif atype == "pushover" %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="user_key">User Key</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="user_key" name="user_key" required style="flex:1"
+                   value="{{ cfg.get('user_key', '') }}">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('user_key', this)">Show</button>
+          </div>
+          <p class="form-hint">Your Pushover user/group key.</p>
+        </div>
+        <div class="form-group">
+          <label for="api_token">API Token</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="api_token" name="api_token" required style="flex:1"
+                   value="{{ cfg.get('api_token', '') }}">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('api_token', this)">Show</button>
+          </div>
+          <p class="form-hint">Your Pushover application API token.</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            {% for val, label in [("-2","Lowest"),("-1","Low"),("0","Normal"),("1","High")] %}
+            <option value="{{ val }}" {% if cfg.get('priority','0') == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="form-hint">Notification priority level.</p>
+        </div>
+        <div class="form-group">
+          <label for="device">Device (optional)</label>
+          <input type="text" id="device" name="device"
+                 value="{{ cfg.get('device', '') }}"
+                 placeholder="Leave blank for all devices">
+        </div>
+      </div>
+
+      {# ── ntfy ── #}
+      {% elif atype == "ntfy" %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="server_url">Server URL</label>
+          <input type="text" id="server_url" name="server_url"
+                 value="{{ cfg.get('server_url', 'https://ntfy.sh') }}"
+                 placeholder="https://ntfy.sh">
+          <p class="form-hint">ntfy server base URL. Use <code>https://ntfy.sh</code> for the public server.</p>
+        </div>
+        <div class="form-group">
+          <label for="topic">Topic</label>
+          <input type="text" id="topic" name="topic" required
+                 value="{{ cfg.get('topic', '') }}"
+                 placeholder="my-warden-alerts">
+          <p class="form-hint">The ntfy topic to publish to.</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="token">Access Token (optional)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="password" id="token" name="token" style="flex:1"
+                   value="{{ cfg.get('token', '') }}">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('token', this)">Show</button>
+          </div>
+          <p class="form-hint">Required only for protected topics.</p>
+        </div>
+        <div class="form-group">
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            {% for val in ["min","low","default","high","urgent"] %}
+            <option value="{{ val }}" {% if cfg.get('priority','default') == val %}selected{% endif %}>{{ val.title() }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {# ── Apprise ── #}
+      {% elif atype == "apprise" %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="server_url">Apprise API Server URL</label>
+          <input type="text" id="server_url" name="server_url" required
+                 value="{{ cfg.get('server_url', '') }}"
+                 placeholder="http://apprise:8000">
+          <p class="form-hint">Base URL of your self-hosted <a href="https://github.com/caronc/apprise-api" target="_blank" style="color:var(--blue)">Apprise API</a> server.</p>
+        </div>
+        <div class="form-group">
+          <label for="tags">Tags (optional)</label>
+          <input type="text" id="tags" name="tags"
+                 value="{{ cfg.get('tags', '') }}"
+                 placeholder="all">
+          <p class="form-hint">Comma-separated Apprise tags to target. Leave blank to notify all configured URLs.</p>
+        </div>
+      </div>
+
+      {# ── JSON Webhook ── #}
+      {% else %}
+      <div class="form-row">
+        <div class="form-group">
+          <label for="url">URL</label>
+          <input type="text" id="url" name="url" required
+                 value="{{ cfg.get('url', '') }}"
+                 placeholder="https://example.com/webhook">
+          <p class="form-hint">Endpoint that will receive the JSON payload.</p>
+        </div>
+        <div class="form-group">
+          <label for="method">HTTP Method</label>
+          <select id="method" name="method">
+            <option value="POST" {% if cfg.get('method','POST') == 'POST' %}selected{% endif %}>POST</option>
+            <option value="GET" {% if cfg.get('method') == 'GET' %}selected{% endif %}>GET</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label for="headers">Additional Headers (optional)</label>
+          <textarea id="headers" name="headers" rows="3"
+                    placeholder='{"Authorization": "Bearer token123"}'
+                    style="font-family:monospace;font-size:0.85rem">{{ cfg.get('headers', '') }}</textarea>
+          <p class="form-hint">JSON object of extra HTTP headers to include.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    {# ── Events ── #}
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px">Events</h3>
+      <p class="form-hint" style="margin-top:-6px;margin-bottom:14px">Choose which events this agent will receive.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% for event_key, event_icon, event_label in all_events %}
+        <div>
+          <label style="display:flex;align-items:center;gap:10px;font-weight:normal;cursor:pointer">
+            <input type="checkbox" name="event_{{ event_key }}" style="width:auto"
+                   id="evt_{{ event_key }}"
+                   {% if event_key in evts or (is_new and event_key != 'clean_scan') %}checked{% endif %}
+                   {% if event_key == 'reminder' %}onchange="toggleReminderDays(this)"{% endif %}>
+            <span>{{ event_icon }} {{ event_label }}</span>
+          </label>
+          {% if event_key == 'reminder' %}
+          <div id="reminder-days-row"
+               style="display:{% if 'reminder' in evts or (is_new) %}flex{% else %}none{% endif %};
+                      align-items:center;gap:8px;margin-top:8px;margin-left:28px">
+            <span style="color:var(--muted);font-size:0.85rem;white-space:nowrap">At</span>
+            <input type="text" name="reminder_days"
+                   value="{{ cfg.get('reminder_days', '7, 1') }}"
+                   placeholder="e.g. 7, 3, 1" style="width:140px">
+            <span style="color:var(--muted);font-size:0.85rem;white-space:nowrap">days remaining</span>
+            <span style="color:var(--muted);font-size:0.8rem">(comma-separated, fires once per item per threshold)</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-top:24px;display:flex;gap:12px">
+      <button type="submit" class="btn btn-primary">{{ "Create Agent" if is_new else "Save Changes" }}</button>
+      <a href="/settings#notifications" class="btn btn-ghost">Cancel</a>
+    </div>
+  </div>
+</form>
+
+<script>
+function toggleSecret(fieldId, btn) {
+  var input = document.getElementById(fieldId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+  else { input.type = 'password'; btn.textContent = 'Show'; }
+}
+function toggleReminderDays(checkbox) {
+  document.getElementById('reminder-days-row').style.display = checkbox.checked ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

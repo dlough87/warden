@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %} — Add Notification Agent{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Add Notification Agent</h1>
+  <a href="/settings#notifications" class="btn btn-ghost">Cancel</a>
+</div>
+
+<p style="color:var(--muted);margin-bottom:24px">Choose a notification service to configure.</p>
+
+<div class="grid grid-2" style="gap:16px">
+  {% for type_key, info in agent_types.items() %}
+  <a href="/settings/notifications/agents/new?type={{ type_key }}"
+     style="text-decoration:none">
+    <div class="card" style="display:flex;align-items:flex-start;gap:16px;cursor:pointer;transition:border-color 0.15s;border:1px solid var(--border)"
+         onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:2rem;line-height:1;flex-shrink:0">{{ info.icon }}</div>
+      <div>
+        <div style="font-weight:600;font-size:1rem;color:var(--text)">{{ info.label }}</div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-top:4px">{{ info.desc }}</div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %} — Rules{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Rules</h1>
+  <button class="btn btn-primary"
+          hx-post="/rules/new"
+          hx-target="#rule-form-container"
+          hx-swap="innerHTML">+ New Rule</button>
+</div>
+
+<div id="rule-form-container" style="margin-bottom: 20px;"></div>
+
+{% if not rules %}
+<div class="card"><p class="empty">No rules configured.</p></div>
+{% endif %}
+
+{% for rule in rules %}
+<div class="rule-card {% if not rule.enabled %}disabled{% endif %}">
+  <div>
+    <div class="rule-name">{{ rule.name }}</div>
+    <div class="rule-meta">
+      {% if rule.media_type != "both" %}{{ rule.media_type|title }} only • {% endif %}
+      {% if rule.added_months %}Added {{ rule.added_months }}mo+ ago{% endif %}
+      {% if rule.unwatched_months %} • Unwatched {{ rule.unwatched_months }}mo{% elif rule.added_months %} • Never watched{% endif %}
+      {% if rule.max_rating %} • Rating &lt; {{ rule.max_rating }}{% endif %}
+      {% if rule.min_rating %} • Rating ≥ {{ rule.min_rating }}{% endif %}
+      {% if rule.max_plays %} • Plays &lt; {{ rule.max_plays }}{% endif %}
+      {% if rule.min_size_gb %} • Size ≥ {{ rule.min_size_gb }}GB{% endif %}
+      {% if rule.include_genres %} • Only {{ rule.include_genres }}{% endif %}
+      {% if rule.exclude_genres %} • Excludes genres{% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-left:auto">
+    <form method="POST" action="/rules/{{ rule.id }}/toggle">
+      <button type="submit" class="btn btn-ghost btn-sm">
+        {% if rule.enabled %}Disable{% else %}Enable{% endif %}
+      </button>
+    </form>
+    <a href="/rules/{{ rule.id }}/edit" class="btn btn-ghost btn-sm">Edit</a>
+    <form method="POST" action="/rules/{{ rule.id }}/duplicate">
+      <button type="submit" class="btn btn-ghost btn-sm">Duplicate</button>
+    </form>
+    <form method="POST" action="/rules/{{ rule.id }}/delete"
+          onsubmit="return confirm('Delete rule \'{{ rule.name }}\'?')">
+      <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+
+<div class="alert alert-warning" style="margin-top:24px">
+  <strong>Note:</strong> Sonarr does not expose a native IMDB rating — TV show ratings use the TVDB community score as a proxy. Rating-based rules for TV shows are approximate.
+</div>
+{% endblock %}

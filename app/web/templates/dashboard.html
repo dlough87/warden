@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %} — Dashboard{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Dashboard</h1>
+  <button class="btn btn-danger"
+          hx-post="/scan/run"
+          hx-target="#scan-status"
+          hx-swap="innerHTML"
+          {% if scanning %}disabled{% endif %}>
+    {% if scanning %}Scanning...{% else %}▶ Run Scan Now{% endif %}
+  </button>
+</div>
+
+<span id="scan-status"></span>
+
+<div class="grid grid-4" style="margin-bottom: 24px;">
+  <div class="card stat">
+    <div class="stat-value {% if stats.condemned_count > 0 %}danger{% endif %}">{{ stats.condemned_count }}</div>
+    <div class="stat-label">On Death Row</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-value">{{ format_size(stats.condemned_bytes or 0) }}</div>
+    <div class="stat-label">Space at Risk</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-value safe">{{ format_scan_time(stats.last_run_completed) }}</div>
+    <div class="stat-label">Last Scan</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Recent Scans</h2>
+  {% if runs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Started</th><th>Mode</th>
+        <th>New Condemned</th><th>Deleted</th><th>Space Freed</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for run in runs %}
+    <tr>
+      <td>{{ format_scan_time(run.started_at) }}</td>
+      <td>
+        {% if run.dry_run %}<span class="badge badge-orange">DRY RUN</span>
+        {% else %}<span class="badge badge-red">LIVE</span>{% endif %}
+      </td>
+      <td>{{ run.new_candidates or 0 }}</td>
+      <td>{{ run.deleted_count or 0 }}</td>
+      <td>{{ format_size(run.space_freed_bytes) }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No scans have run yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

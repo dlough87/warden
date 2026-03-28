@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %} — Death Row{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Death Row <span style="color:var(--muted);font-weight:400;font-size:1rem">({{ items|length }} condemned — {{ total_size }})</span></h1>
+</div>
+
+{% if settings.get("dry_run") == "true" %}
+<div class="alert alert-warning">
+  ⚠️ <strong>Dry Run mode is active.</strong> No items will actually be deleted. Toggle in <a href="/settings">Settings</a>.
+</div>
+{% endif %}
+
+{% if items %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th><a href="{{ sort_url('title') }}" style="color:inherit">Title {% if sort=='title' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th>Type</th>
+        <th><a href="{{ sort_url('imdb_rating') }}" style="color:inherit">Rating {% if sort=='imdb_rating' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th>Rule</th>
+        <th><a href="{{ sort_url('added_date') }}" style="color:inherit">Added {% if sort=='added_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('last_watched_date') }}" style="color:inherit">Last Watched {% if sort=='last_watched_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('days_left') }}" style="color:inherit">Days Left {% if sort=='days_left' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="death-row-table">
+    {% for item in items %}
+    <tr id="row-{{ item.id | replace(':', '-') }}">
+      <td><a href="/library/{{ item.id | urlencode }}" style="color:var(--text);font-weight:600" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text)'">{{ item.title }}</a> {% if item.year %}<span style="color:var(--muted)">({{ item.year }})</span>{% endif %}</td>
+      <td>
+        {% if item.media_type == "movie" %}<span class="badge badge-movie">Movie</span>
+        {% else %}<span class="badge badge-show">Show</span>{% endif %}
+      </td>
+      <td>{{ "%.1f"|format(item.imdb_rating) if item.imdb_rating else "—" }}</td>
+      <td>{{ (item.criteria_matched or ["?"])[0] }}</td>
+      <td>{{ item.added_fmt }}</td>
+      <td>{{ item.watched_fmt }}</td>
+      <td>
+        {% if item.days_left is not none %}
+          {% if item.days_left == 0 %}<span style="color:var(--accent)">Today</span>
+          {% elif item.days_left <= 7 %}<span style="color:var(--accent)">{{ item.days_left }}d</span>
+          {% else %}{{ item.days_left }}d{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        <div class="pardon-form">
+          <input type="text" id="reason-{{ loop.index }}" placeholder="Reason to pardon..." style="width:180px">
+          <button class="btn btn-ghost btn-sm"
+                  hx-post="/death-row/{{ item.id | urlencode }}/pardon"
+                  hx-include="#reason-{{ loop.index }}"
+                  hx-vals='{"reason": ""}'
+                  hx-target="#row-{{ item.id | replace(':', '-') }}"
+                  hx-swap="outerHTML"
+                  onclick="this.setAttribute('hx-vals', JSON.stringify({reason: document.getElementById('reason-{{ loop.index }}').value}))">
+            Pardon
+          </button>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card"><p class="empty">No items on death row. Library is clean! 🎉</p></div>
+{% endif %}
+{% endblock %}

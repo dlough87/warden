@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %} — Settings{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<style>
+  .ts-wrapper.single .ts-control,
+  .ts-wrapper.single .ts-control input,
+  .ts-dropdown {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+    border-radius: var(--radius) !important;
+  }
+  .ts-wrapper.single.focus .ts-control { border-color: var(--blue) !important; box-shadow: none !important; }
+  .ts-dropdown { border: 1px solid var(--border) !important; }
+  .ts-dropdown .option { color: var(--text); padding: 6px 12px; }
+  .ts-dropdown .option:hover,
+  .ts-dropdown .option.active { background: rgba(52,152,219,0.15) !important; color: var(--text) !important; }
+  .ts-dropdown .optgroup-header { color: var(--muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 12px 4px; background: var(--surface) !important; }
+  .ts-control { padding: 6px 12px !important; min-height: unset !important; }
+  .ts-control input { background: transparent !important; color: var(--text) !important; }
+  .ts-wrapper .ts-control::after { border-top-color: var(--muted) !important; }
+  .ts-wrapper { flex: 1; min-width: 0; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+{% if saved %}
+<div class="alert alert-success">✓ Settings saved successfully.</div>
+{% endif %}
+
+{# ── Tab nav ── #}
+<div style="display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0" id="settings-tabs">
+  <button onclick="switchTab('general')"   id="tab-general"       class="settings-tab active" type="button">General</button>
+  <button onclick="switchTab('connections')" id="tab-connections" class="settings-tab" type="button">Connections</button>
+  <button onclick="switchTab('notifications')" id="tab-notifications" class="settings-tab" type="button">Notifications</button>
+</div>
+
+{# ── General ── #}
+<div id="panel-general" class="tab-panel active">
+<div class="card">
+  <form method="POST" action="/settings">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>
+          <input type="checkbox" name="dry_run" {% if settings.get("dry_run") == "true" %}checked{% endif %}
+                 style="width:auto;margin-right:8px">
+          Dry Run Mode
+        </label>
+        <p class="form-hint">When enabled, no media is ever deleted. Discord notifications still fire.</p>
+      </div>
+      <div class="form-group">
+        <label for="death_row_days">Days on Death Row Before Condemnation</label>
+        <input type="number" id="death_row_days" name="death_row_days" min="1" max="365"
+               value="{{ settings.get('death_row_days', '30') }}">
+        <p class="form-hint">Items matching a rule are warned for this many days before deletion.</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="watch_threshold_percent">Watch Threshold (%)</label>
+        <input type="number" id="watch_threshold_percent" name="watch_threshold_percent"
+               min="1" max="100" value="{{ settings.get('watch_threshold_percent', '80') }}">
+        <p class="form-hint">Minimum percentage of a movie/episode that must be watched to count as "watched".</p>
+      </div>
+      <div class="form-group">
+        <label for="tv_watched_definition">TV Show — "Watched" Definition</label>
+        <select id="tv_watched_definition" name="tv_watched_definition">
+          <option value="any_episode" {% if settings.get("tv_watched_definition") == "any_episode" %}selected{% endif %}>Any episode watched</option>
+          <option value="half_episodes" {% if settings.get("tv_watched_definition") == "half_episodes" %}selected{% endif %}>50% of episodes watched</option>
+          <option value="all_episodes" {% if settings.get("tv_watched_definition") == "all_episodes" %}selected{% endif %}>All episodes watched</option>
+        </select>
+        <p class="form-hint">How to determine if a TV show counts as "watched" for rule evaluation.</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Scan Schedule</label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span style="color:var(--muted);font-size:0.85rem;white-space:nowrap">Every</span>
+          <input type="number" name="schedule_interval" min="1" max="365" style="width:80px"
+                 value="{{ schedule_friendly.interval }}">
+          <select name="schedule_unit" style="width:120px">
+            <option value="days" {% if schedule_friendly.unit == 'days' %}selected{% endif %}>day(s)</option>
+            <option value="weeks" {% if schedule_friendly.unit == 'weeks' %}selected{% endif %}>week(s)</option>
+          </select>
+          <span style="color:var(--muted);font-size:0.85rem;white-space:nowrap">at</span>
+          <input type="time" name="schedule_time" style="width:120px"
+                 value="{{ schedule_friendly.time }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="timezone">Timezone</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="timezone" name="timezone" style="flex:1">
+            {% set current_tz = settings.get('timezone', '') %}
+            {% for region, zones in timezones.items() %}
+            <optgroup label="{{ region }}">
+              {% for tz in zones %}
+              <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="detectTimezone()">Detect</button>
+        </div>
+        <p class="form-hint">Click Detect to use your browser's timezone.</p>
+      </div>
+    </div>
+
+    <div class="form-group" style="max-width:480px">
+      <label for="webauthn_rp_id">Passkey Domain</label>
+      <input type="text" id="webauthn_rp_id" name="webauthn_rp_id"
+             placeholder="warden.example.com"
+             value="{{ settings.get('webauthn_rp_id', '') }}">
+      <p class="form-hint">The hostname you access Warden from (e.g. <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px">warden.example.com</code>). No https://, no port. Required to use passkeys.</p>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+  </form>
+</div>
+</div>
+
+{# ── Connections ── #}
+<div id="panel-connections" class="tab-panel">
+<div class="card">
+  <form method="POST" action="/settings/connections">
+
+    {% macro test_btn(service) %}
+    <button type="button" class="btn btn-ghost btn-sm"
+            hx-post="/settings/test/{{ service }}"
+            hx-target="#test-{{ service }}"
+            hx-swap="innerHTML"
+            hx-indicator="#test-{{ service }}">Test</button>
+    <span id="test-{{ service }}" style="font-size:0.85rem;color:var(--muted)"></span>
+    {% endmacro %}
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;margin-top:4px">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--text);margin:0">Radarr</h3>
+      {{ test_btn("radarr") }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="radarr_url">Internal URL</label>
+        <input type="text" id="radarr_url" name="radarr_url" value="{{ settings.get('radarr_url', '') }}" placeholder="http://10.0.0.1:7878">
+        <p class="form-hint">Internal address used by Warden to call the API</p>
+      </div>
+      <div class="form-group">
+        <label for="radarr_api_key">API Key</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="radarr_api_key" name="radarr_api_key" value="{{ settings.get('radarr_api_key', '') }}" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('radarr_api_key', this)">Show</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="radarr_public_url">Public URL</label>
+        <input type="text" id="radarr_public_url" name="radarr_public_url" value="{{ settings.get('radarr_public_url', '') }}" placeholder="https://radarr.example.com">
+        <p class="form-hint">Externally accessible URL used for pivot links</p>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--text);margin:0">Sonarr</h3>
+      {{ test_btn("sonarr") }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="sonarr_url">Internal URL</label>
+        <input type="text" id="sonarr_url" name="sonarr_url" value="{{ settings.get('sonarr_url', '') }}" placeholder="http://10.0.0.1:8989">
+        <p class="form-hint">Internal address used by Warden to call the API</p>
+      </div>
+      <div class="form-group">
+        <label for="sonarr_api_key">API Key</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="sonarr_api_key" name="sonarr_api_key" value="{{ settings.get('sonarr_api_key', '') }}" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('sonarr_api_key', this)">Show</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="sonarr_public_url">Public URL</label>
+        <input type="text" id="sonarr_public_url" name="sonarr_public_url" value="{{ settings.get('sonarr_public_url', '') }}" placeholder="https://sonarr.example.com">
+        <p class="form-hint">Externally accessible URL used for pivot links</p>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--text);margin:0">Plex</h3>
+      {{ test_btn("plex") }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="plex_url">Internal URL</label>
+        <input type="text" id="plex_url" name="plex_url" value="{{ settings.get('plex_url', '') }}" placeholder="http://10.0.0.1:32400">
+        <p class="form-hint">Internal address used by Warden to call the API</p>
+      </div>
+      <div class="form-group">
+        <label for="plex_token">Token</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="plex_token" name="plex_token" value="{{ settings.get('plex_token', '') }}" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('plex_token', this)">Show</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="plex_public_url">Public URL</label>
+        <input type="text" id="plex_public_url" name="plex_public_url" value="{{ settings.get('plex_public_url', '') }}" placeholder="https://plex.example.com">
+        <p class="form-hint">Externally accessible URL used for pivot links</p>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;margin-top:8px;padding-top:16px;border-top:1px solid var(--border)">
+      <h3 style="font-size:0.85rem;font-weight:600;color:var(--text);margin:0">Tautulli</h3>
+      {{ test_btn("tautulli") }}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="tautulli_url">Internal URL</label>
+        <input type="text" id="tautulli_url" name="tautulli_url" value="{{ settings.get('tautulli_url', '') }}" placeholder="http://10.0.0.1:8181">
+        <p class="form-hint">Internal address used by Warden to call the API</p>
+      </div>
+      <div class="form-group">
+        <label for="tautulli_api_key">API Key</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="tautulli_api_key" name="tautulli_api_key" value="{{ settings.get('tautulli_api_key', '') }}" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSecret('tautulli_api_key', this)">Show</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="tautulli_public_url">Public URL</label>
+        <input type="text" id="tautulli_public_url" name="tautulli_public_url" value="{{ settings.get('tautulli_public_url', '') }}" placeholder="https://tautulli.example.com">
+        <p class="form-hint">Externally accessible URL used for pivot links</p>
+      </div>
+      <div class="form-group"></div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="margin-top:8px">Save Connections</button>
+  </form>
+</div>
+</div>
+
+{# ── Notifications ── #}
+<div id="panel-notifications" class="tab-panel">
+<div class="card" id="notifications">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h4 style="margin:0;font-size:0.85rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">Notification Agents</h4>
+    <a href="/settings/notifications/agents/new" class="btn btn-primary btn-sm">+ Add Agent</a>
+  </div>
+
+  {% if agents %}
+  <div style="display:flex;flex-direction:column;gap:12px">
+    {% for agent in agents %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;align-items:center;gap:14px;{% if not agent.enabled %}opacity:0.5{% endif %}">
+      <div style="font-size:1.6rem;line-height:1;width:36px;text-align:center;flex-shrink:0">
+        {{ {"discord":"🎮","pushover":"📱","ntfy":"📢","apprise":"🔔","webhook":"🔗"}.get(agent.agent_type, "🔔") }}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.95rem">{{ agent.name }}</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:2px">{{ {"discord":"Discord Webhook","pushover":"Pushover","ntfy":"ntfy","apprise":"Apprise","webhook":"JSON Webhook"}.get(agent.agent_type, agent.agent_type) }}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          {% set evts = agent.events | from_json %}
+          {% for event_key, event_icon, event_label in [("condemned","🚨","Condemned"),("reminder","⏳","Reminders"),("deleted","🗑️","Deleted"),("clean_scan","✅","Clean Scan")] %}
+          {% if event_key in evts %}
+          <span class="badge badge-{% if event_key == 'clean_scan' %}green{% elif event_key == 'deleted' %}red{% else %}orange{% endif %}" style="font-size:0.72rem">{{ event_icon }} {{ event_label }}</span>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <span id="agent-test-{{ agent.id }}" style="font-size:0.8rem;color:var(--muted)"></span>
+        <button class="btn btn-ghost btn-sm"
+                hx-post="/settings/notifications/agents/{{ agent.id }}/test"
+                hx-target="#agent-test-{{ agent.id }}"
+                hx-swap="innerHTML">Test</button>
+        <a href="/settings/notifications/agents/{{ agent.id }}/edit" class="btn btn-ghost btn-sm">Edit</a>
+        <form method="POST" action="/settings/notifications/agents/{{ agent.id }}/toggle" style="display:inline">
+          <button type="submit" class="btn btn-ghost btn-sm">{{ "Disable" if agent.enabled else "Enable" }}</button>
+        </form>
+        <form method="POST" action="/settings/notifications/agents/{{ agent.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Delete agent {{ agent.name }}?')">
+          <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">No notification agents configured. <a href="/settings/notifications/agents/new">Add one</a>.</p>
+  {% endif %}
+</div>
+</div>
+
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.settings-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('panel-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  history.replaceState(null, '', '#' + name);
+}
+
+// Restore tab from URL hash on load
+(function() {
+  var hash = location.hash.replace('#', '');
+  if (['general','connections','notifications'].indexOf(hash) !== -1) switchTab(hash);
+})();
+
+function toggleSecret(fieldId, btn) {
+  var input = document.getElementById(fieldId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    btn.textContent = 'Show';
+  }
+}
+
+var tzSelect = new TomSelect('#timezone', {
+  maxOptions: null,
+  searchField: ['value'],
+  placeholder: 'Search timezone…',
+});
+
+function detectTimezone() {
+  var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  tzSelect.setValue(tz);
+}
+
+// Auto-detect on first load if no timezone saved yet
+if (!tzSelect.getValue()) detectTimezone();
+</script>
+{% endblock %}

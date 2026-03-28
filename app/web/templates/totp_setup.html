@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %} — Set Up Two-Factor Authentication{% endblock %}
+{% block content %}
+<div class="section-header">
+  <h1>Set Up Two-Factor Authentication</h1>
+</div>
+
+<div class="card" style="max-width: 520px;">
+  <h2>Step 1 — Scan the QR code</h2>
+  <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
+    Open your authenticator app (Google Authenticator, Authy, 1Password, etc.)
+    and scan the QR code below.
+  </p>
+
+  <div style="background: #fff; display: inline-block; padding: 12px; border-radius: var(--radius); margin-bottom: 20px;">
+    <div id="qrcode"></div>
+  </div>
+
+  <details style="margin-bottom: 24px;">
+    <summary style="color: var(--muted); font-size: 0.85rem; cursor: pointer; user-select: none;">
+      Can't scan? Enter the key manually
+    </summary>
+    <div style="margin-top: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;">
+      <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 4px;">Account: Warden &nbsp;·&nbsp; Type: Time-based</div>
+      <code style="font-size: 1rem; letter-spacing: 3px; word-break: break-all;">{{ secret }}</code>
+    </div>
+  </details>
+
+  <h2>Step 2 — Confirm the code</h2>
+  <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">
+    Enter the 6-digit code your app shows to confirm everything is working.
+  </p>
+
+  {% if error %}
+  <div style="background:rgba(231,76,60,0.12);border:1px solid rgba(231,76,60,0.4);border-radius:var(--radius);color:#e74c3c;font-size:0.875rem;padding:10px 14px;margin-bottom:16px;">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/profile/totp/confirm">
+    <div style="margin-bottom: 16px;">
+      <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:6px;">Authenticator Code</label>
+      <input type="text" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7"
+             autofocus autocomplete="one-time-code" placeholder="000000"
+             style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:1.5rem;font-weight:700;letter-spacing:6px;text-align:center;padding:10px 14px;width:100%;outline:none;">
+    </div>
+    <div style="display:flex;gap:12px;">
+      <button type="submit" class="btn" style="flex:1;">Enable 2FA</button>
+      <a href="/profile" class="btn" style="flex:0 0 auto;background:var(--border);color:var(--text);text-decoration:none;padding:11px 20px;text-align:center;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  new QRCode(document.getElementById("qrcode"), {
+    text: {{ totp_uri | tojson }},
+    width: 200,
+    height: 200,
+    colorDark: "#000000",
+    colorLight: "#ffffff"
+  });
+</script>
+{% endblock %}

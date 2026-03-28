@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %} — {{ item.title }}{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:20px">
+  <a href="/library" style="color:var(--muted);font-size:0.85rem">← Back to Library</a>
+</div>
+
+{# ── Hero ─────────────────────────────────────────────────────────────────── #}
+<div class="card" style="margin-bottom:20px;padding:28px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        {% if item.media_type == "movie" %}
+          <span class="badge badge-movie">Movie</span>
+        {% else %}
+          <span class="badge badge-show">TV Show</span>
+        {% endif %}
+        {% if item.status == "condemned" %}
+          <span class="badge badge-red">Condemned</span>
+        {% elif item.status == "pardoned" %}
+          <span class="badge badge-green">Pardoned</span>
+        {% elif item.status == "deleted" %}
+          <span class="badge" style="background:rgba(255,255,255,0.1);color:var(--muted)">Deleted</span>
+        {% endif %}
+        {% if item.status == "condemned" and days_left is not none %}
+          <span style="color:var(--accent);font-size:0.85rem">
+            {% if days_left == 0 %}Scheduled for deletion today{% else %}{{ days_left }} day{{ 's' if days_left != 1 }} left{% endif %}
+          </span>
+        {% endif %}
+      </div>
+
+      <h1 style="font-size:2rem;font-weight:700;margin-bottom:6px;line-height:1.2">
+        {{ item.title }}
+        {% if item.year %}<span style="color:var(--muted);font-weight:400;font-size:1.4rem">({{ item.year }})</span>{% endif %}
+      </h1>
+
+      {% if item.genres %}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
+        {% for genre in item.genres %}
+          <span style="background:rgba(255,255,255,0.06);color:var(--muted);padding:2px 10px;border-radius:12px;font-size:0.8rem">{{ genre }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if arr.overview %}
+      <p style="color:var(--muted);font-size:0.9rem;line-height:1.6;max-width:720px">{{ arr.overview }}</p>
+      {% endif %}
+    </div>
+
+    {# Rating #}
+    {% if item.imdb_rating %}
+    <div style="text-align:center;flex-shrink:0">
+      <div style="font-size:2.5rem;font-weight:700;color:{% if item.imdb_rating >= 8 %}var(--green){% elif item.imdb_rating >= 7 %}var(--orange){% else %}var(--accent){% endif %}">
+        {{ "%.1f"|format(item.imdb_rating) }}
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">
+        {% if item.media_type == "show" %}TVDB Rating{% else %}IMDb Rating{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Watch Stats ───────────────────────────────────────────────────────────── #}
+<div class="grid grid-4" style="margin-bottom:20px">
+  <div class="card stat">
+    <div class="stat-value {% if item.total_plays == 0 %}danger{% endif %}">{{ item.total_plays or 0 }}</div>
+    <div class="stat-label">Total Plays</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-value {% if not item.last_watched_date %}danger{% endif %}" style="font-size:1.3rem">
+      {{ format_age(item.last_watched_date) if item.last_watched_date else "Never" }}
+    </div>
+    <div class="stat-label">Last Watched</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-value" style="font-size:1.3rem">
+      {% if item.max_watch_percent %}{{ "%.0f"|format(item.max_watch_percent) }}%{% else %}—{% endif %}
+    </div>
+    <div class="stat-label">Max Watch %</div>
+  </div>
+  <div class="card stat">
+    <div class="stat-value" style="font-size:1.3rem">{{ format_size(item.size_bytes) }}</div>
+    <div class="stat-label">Size on Disk</div>
+  </div>
+</div>
+
+{# ── Details Grid ─────────────────────────────────────────────────────────── #}
+<div class="grid grid-2" style="margin-bottom:20px">
+
+  {# Library Info #}
+  <div class="card">
+    <h2>Library Info</h2>
+    <table style="font-size:0.9rem">
+      <tbody>
+        <tr><td style="color:var(--muted);width:140px;padding:8px 12px">Added</td>
+            <td style="padding:8px 12px">{{ format_age(item.added_date) if item.added_date else "—" }}</td></tr>
+        {% if arr.runtime %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Runtime</td>
+            <td style="padding:8px 12px">{{ arr.runtime }} min</td></tr>
+        {% endif %}
+        {% if arr.certification %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Certification</td>
+            <td style="padding:8px 12px">{{ arr.certification }}</td></tr>
+        {% endif %}
+        {% if arr.studio %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Studio</td>
+            <td style="padding:8px 12px">{{ arr.studio }}</td></tr>
+        {% endif %}
+        {% if arr.network %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Network</td>
+            <td style="padding:8px 12px">{{ arr.network }}</td></tr>
+        {% endif %}
+        {% if arr.status %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Series Status</td>
+            <td style="padding:8px 12px">{{ arr.status | capitalize }}</td></tr>
+        {% endif %}
+        {% if arr.season_count %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Seasons</td>
+            <td style="padding:8px 12px">{{ arr.season_count }}</td></tr>
+        {% endif %}
+        {% if arr.episode_file_count is not none and arr.episode_count %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Episodes</td>
+            <td style="padding:8px 12px">{{ arr.episode_file_count }} / {{ arr.episode_count }} on disk</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {# File Info #}
+  <div class="card">
+    <h2>File Info</h2>
+    <table style="font-size:0.9rem">
+      <tbody>
+        {% if arr.quality %}
+        <tr><td style="color:var(--muted);width:140px;padding:8px 12px">Quality</td>
+            <td style="padding:8px 12px">{{ arr.quality }}</td></tr>
+        {% endif %}
+        <tr><td style="color:var(--muted);padding:8px 12px">Size</td>
+            <td style="padding:8px 12px">{{ format_size(item.size_bytes) }}</td></tr>
+        {% if arr.file_path %}
+        <tr><td style="color:var(--muted);padding:8px 12px;vertical-align:top">Path</td>
+            <td style="padding:8px 12px;font-size:0.8rem;word-break:break-all;color:var(--muted)">{{ arr.file_path }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── Warden Status ─────────────────────────────────────────────────────────── #}
+{% if item.status == "deleted" %}
+<div class="card" style="margin-bottom:20px;border-color:rgba(255,255,255,0.12)">
+  <h2 style="color:var(--muted)">Deleted</h2>
+  <p style="color:var(--muted);margin-bottom:0">
+    This item has been removed from your library by Warden.
+    The files have been deleted and it has been added to the import exclusion list in
+    {{ "Radarr" if item.media_type == "movie" else "Sonarr" }}.
+  </p>
+  {% if item.updated_at %}
+  <p style="color:var(--muted);font-size:0.85rem;margin-top:8px;margin-bottom:0">
+    Deleted {{ format_age(item.updated_at) }}
+  </p>
+  {% endif %}
+  {% if item.criteria_matched %}
+  <div style="margin-top:14px">
+    <div style="font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Was matched by</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% for rule in item.criteria_matched %}
+        <span class="badge badge-orange">{{ rule }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% elif item.status in ("condemned", "pardoned") or item.criteria_matched %}
+<div class="card" style="margin-bottom:20px;border-color:{% if item.status == 'condemned' %}rgba(231,76,60,0.4){% elif item.status == 'pardoned' %}rgba(46,204,113,0.4){% else %}var(--border){% endif %}">
+  <h2>Warden Status</h2>
+  {% if item.criteria_matched %}
+  <div style="margin-bottom:16px">
+    <div style="font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Matched Rules</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% for rule in item.criteria_matched %}
+        <span class="badge badge-red">{{ rule }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if item.status == "condemned" %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+    {% if item.death_row_date %}
+    <div>
+      <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">On Death Row Since</div>
+      <div style="margin-top:4px">{{ format_age(item.death_row_date) }}</div>
+    </div>
+    {% endif %}
+    {% if days_left is not none %}
+    <div>
+      <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Days Remaining</div>
+      <div style="margin-top:4px;color:{% if days_left <= 7 %}var(--accent){% else %}var(--text){% endif %}">
+        {% if days_left == 0 %}Today{% else %}{{ days_left }}d{% endif %}
+      </div>
+    </div>
+    {% endif %}
+    {% if settings.get("dry_run") == "true" %}
+    <div>
+      <div style="font-size:0.75rem;color:var(--orange);text-transform:uppercase;letter-spacing:1px">Mode</div>
+      <div style="margin-top:4px;color:var(--orange)">Dry Run — will not delete</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="pardon-form">
+    <form method="POST" action="/library/{{ item.id | urlencode }}/pardon" style="display:flex;gap:8px;align-items:center">
+      <input type="text" name="reason" placeholder="Reason to pardon..." style="width:280px">
+      <button type="submit" class="btn btn-ghost btn-sm">Pardon</button>
+    </form>
+  </div>
+
+  {% elif item.status == "pardoned" %}
+  <div style="color:var(--green)">
+    ✓ Pardoned{% if item.pardon_reason %} — <em style="color:var(--muted)">{{ item.pardon_reason }}</em>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── External Links ───────────────────────────────────────────────────────── #}
+{% if links %}
+<div class="card">
+  <h2>Open In</h2>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    {% for name, url in links.items() %}
+    <a href="{{ url }}" target="_blank" rel="noopener" class="btn btn-ghost">
+      {% if name == "IMDb" %}⭐{% elif name == "Radarr" or name == "Sonarr" %}🎯{% elif name == "Plex" %}▶{% else %}🔗{% endif %}
+      {{ name }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

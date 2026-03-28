@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %} — Library{% endblock %}
+{% block content %}
+
+<div class="section-header">
+  <h1>Library <span style="font-size:1rem;font-weight:400;color:var(--muted)">{{ total }} items</span></h1>
+</div>
+
+{# ── Filters ── #}
+<form method="GET" action="/library" style="margin-bottom:20px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+    <div class="form-group" style="margin:0;flex:1;min-width:200px">
+      <label>Search</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Title...">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label>Type</label>
+      <select name="media_type" style="width:130px">
+        <option value="">All</option>
+        <option value="movie" {% if media_type == 'movie' %}selected{% endif %}>Movies</option>
+        <option value="show" {% if media_type == 'show' %}selected{% endif %}>TV Shows</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label>Status</label>
+      <select name="status" style="width:130px">
+        <option value="">All active</option>
+        <option value="ok" {% if status == 'ok' %}selected{% endif %}>OK</option>
+        <option value="condemned" {% if status == 'condemned' %}selected{% endif %}>Condemned</option>
+        <option value="pardoned" {% if status == 'pardoned' %}selected{% endif %}>Pardoned</option>
+        <option value="deleted" {% if status == 'deleted' %}selected{% endif %}>Deleted</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label>Watched</label>
+      <select name="watched" style="width:120px">
+        <option value="">All</option>
+        <option value="yes" {% if watched == 'yes' %}selected{% endif %}>Watched</option>
+        <option value="no" {% if watched == 'no' %}selected{% endif %}>Never watched</option>
+      </select>
+    </div>
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="order" value="{{ order }}">
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="/library" class="btn btn-ghost">Reset</a>
+  </div>
+</form>
+
+{# ── Table ── #}
+<div class="card" style="padding:0;overflow-x:auto">
+  <table>
+    <thead>
+      <tr>
+        <th><a href="{{ sort_url('title') }}" style="color:inherit">Title {% if sort=='title' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th>Type</th>
+        <th><a href="{{ sort_url('year') }}" style="color:inherit">Year {% if sort=='year' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('imdb_rating') }}" style="color:inherit">Rating {% if sort=='imdb_rating' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('size_bytes') }}" style="color:inherit">Size {% if sort=='size_bytes' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('added_date') }}" style="color:inherit">Added {% if sort=='added_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('last_watched_date') }}" style="color:inherit">Last Watched {% if sort=='last_watched_date' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('total_plays') }}" style="color:inherit">Plays {% if sort=='total_plays' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th><a href="{{ sort_url('status') }}" style="color:inherit">Status {% if sort=='status' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
+        <th>Rules Matched</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in items %}
+    <tr>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ item.title }}">
+        <a href="/library/{{ item.id | urlencode }}" style="color:var(--text);text-decoration:none;font-weight:600" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text)'">{{ item.title }}</a>
+      </td>
+      <td>
+        {% if item.media_type == 'movie' %}
+          <span class="badge badge-movie">Movie</span>
+        {% else %}
+          <span class="badge badge-show">Show</span>
+        {% endif %}
+      </td>
+      <td style="color:var(--muted)">{{ item.year or '—' }}</td>
+      <td>
+        {% if item.imdb_rating %}
+          <span style="color:{% if item.imdb_rating >= 8 %}var(--green){% elif item.imdb_rating >= 7 %}var(--orange){% else %}var(--accent){% endif %}">
+            {{ "%.1f"|format(item.imdb_rating) }}
+          </span>
+        {% else %}
+          <span style="color:var(--muted)">—</span>
+        {% endif %}
+      </td>
+      <td style="color:var(--muted)">{{ item.size_fmt }}</td>
+      <td style="color:var(--muted)">{{ item.added_fmt }}</td>
+      <td style="{% if not item.last_watched_date %}color:var(--accent){% else %}color:var(--muted){% endif %}">
+        {{ item.watched_fmt }}
+      </td>
+      <td style="color:var(--muted)">{{ item.total_plays or 0 }}</td>
+      <td>
+        {% if item.status == 'condemned' %}
+          <span class="badge badge-red">Condemned</span>
+        {% elif item.status == 'pardoned' %}
+          <span class="badge badge-green">Pardoned</span>
+        {% elif item.status == 'deleted' %}
+          <span class="badge" style="background:rgba(255,255,255,0.08);color:var(--muted)">Deleted</span>
+        {% else %}
+          <span style="color:var(--muted);font-size:0.8rem">OK</span>
+        {% endif %}
+      </td>
+      <td style="font-size:0.8rem;color:var(--muted)">
+        {% if item.criteria_matched %}
+          {% for rule in item.criteria_matched %}
+            <span class="badge badge-orange" style="margin-bottom:2px">{{ rule }}</span>
+          {% endfor %}
+        {% else %}—{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="10" class="empty">No items match the current filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── Pagination ── #}
+{% if total_pages > 1 %}
+<div style="display:flex;gap:8px;justify-content:center;margin-top:20px;align-items:center">
+  {% if page > 1 %}
+    <a href="/library?q={{ q }}&media_type={{ media_type }}&status={{ status }}&watched={{ watched }}&sort={{ sort }}&order={{ order }}&page={{ page - 1 }}"
+       class="btn btn-ghost btn-sm">← Prev</a>
+  {% endif %}
+  <span style="color:var(--muted);font-size:0.9rem">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/library?q={{ q }}&media_type={{ media_type }}&status={{ status }}&watched={{ watched }}&sort={{ sort }}&order={{ order }}&page={{ page + 1 }}"
+       class="btn btn-ghost btn-sm">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

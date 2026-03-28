@@ -1,0 +1,83 @@
+<div class="card" style="margin-bottom: 20px;">
+  <form method="POST" action="{{ action }}">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="name">Rule Name</label>
+        <input type="text" id="name" name="name" value="{{ rule.name or '' }}" required>
+      </div>
+      <div class="form-group">
+        <label for="media_type">Applies To</label>
+        <select id="media_type" name="media_type">
+          <option value="both" {% if rule.get('media_type','both') == 'both' %}selected{% endif %}>Movies &amp; TV Shows</option>
+          <option value="movie" {% if rule.get('media_type') == 'movie' %}selected{% endif %}>Movies only</option>
+          <option value="show" {% if rule.get('media_type') == 'show' %}selected{% endif %}>TV Shows only</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="added_months">Added At Least N Months Ago</label>
+        <input type="number" id="added_months" name="added_months" min="1"
+               value="{{ rule.added_months or '' }}" placeholder="e.g. 18">
+        <p class="form-hint">Leave blank to skip this check.</p>
+      </div>
+      <div class="form-group">
+        <label for="unwatched_months">No Qualifying Watch In Last N Months</label>
+        <input type="number" id="unwatched_months" name="unwatched_months" min="1"
+               value="{{ rule.unwatched_months or '' }}" placeholder="Blank = never watched at all">
+        <p class="form-hint">Leave blank to target items never watched at all.</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="max_rating">Max Rating (delete below this)</label>
+        <input type="number" id="max_rating" name="max_rating" min="0" max="10" step="0.1"
+               value="{{ rule.max_rating or '' }}" placeholder="e.g. 7.0">
+        <p class="form-hint">Items rated ≥ this value are protected. Leave blank for no rating filter.</p>
+      </div>
+      <div class="form-group">
+        <label for="min_rating">Min Rating (protect below this)</label>
+        <input type="number" id="min_rating" name="min_rating" min="0" max="10" step="0.1"
+               value="{{ rule.min_rating or '' }}" placeholder="e.g. 1.0">
+        <p class="form-hint">Items rated below this (or unrated) are protected. Leave blank to include unrated items.</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="max_plays">Max Total Plays</label>
+        <input type="number" id="max_plays" name="max_plays" min="1"
+               value="{{ rule.max_plays or '' }}" placeholder="e.g. 1">
+        <p class="form-hint">Only target items watched fewer than N times. Leave blank to ignore.</p>
+      </div>
+      <div class="form-group">
+        <label for="min_size_gb">Minimum File Size (GB)</label>
+        <input type="number" id="min_size_gb" name="min_size_gb" min="0" step="0.1"
+               value="{{ rule.min_size_gb or '' }}" placeholder="e.g. 5.0">
+        <p class="form-hint">Only target items larger than this. Leave blank to ignore.</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="include_genres">Include Genres (comma-separated)</label>
+        <input type="text" id="include_genres" name="include_genres"
+               value="{{ rule.include_genres or '' }}" placeholder="e.g. Comedy, Romance">
+        <p class="form-hint">Only target items that have at least one of these genres. Leave blank to match all genres.</p>
+      </div>
+      <div class="form-group">
+        <label for="exclude_genres">Exclude Genres (comma-separated)</label>
+        <input type="text" id="exclude_genres" name="exclude_genres"
+               value="{{ rule.exclude_genres or '' }}" placeholder="e.g. Documentary, Animation">
+        <p class="form-hint">Items matching any of these genres will be skipped by this rule.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px">
+      <button type="submit" class="btn btn-primary">{% if rule.id %}Save Changes{% else %}Create Rule{% endif %}</button>
+      <a href="/rules" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>

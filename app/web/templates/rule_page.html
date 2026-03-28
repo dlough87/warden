@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %} — {% if rule.id %}Edit Rule{% else %}New Rule{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if rule.id %}Edit Rule{% else %}New Rule{% endif %}</h1>
+{% include "rule_form.html" %}
+{% endblock %}

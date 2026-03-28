@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% block title %} — Profile{% endblock %}
+
+{% block head %}
+<style>
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .profile-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .profile-avatar-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+  }
+  .profile-avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--accent); color: white;
+    font-size: 2rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .profile-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+  .profile-main { display: flex; flex-direction: column; gap: 20px; }
+  .profile-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  }
+  .profile-section-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .profile-section-title { font-size: 0.9rem; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 1px; }
+  .profile-section-body { padding: 24px; }
+  .field-row { margin-bottom: 18px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; display: block; font-weight: 500; }
+  .field-input {
+    width: 100%; max-width: 360px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); font-size: 0.95rem;
+    padding: 9px 12px; outline: none; transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--blue); }
+  .field-hint { font-size: 0.75rem; color: var(--muted); margin-top: 5px; }
+  .btn-sm { font-size: 0.875rem; padding: 8px 18px; }
+  .alert {
+    border-radius: var(--radius); font-size: 0.875rem; padding: 10px 14px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .alert-error { background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #e74c3c; }
+  .alert-success { background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.3); color: var(--green); }
+  .totp-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;
+  }
+  .totp-status.on { background: rgba(46,204,113,0.12); border: 1px solid rgba(46,204,113,0.3); color: var(--green); }
+  .totp-status.off { background: rgba(139,148,158,0.1); border: 1px solid var(--border); color: var(--muted); }
+  .totp-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  @media (max-width: 700px) {
+    .profile-grid { grid-template-columns: 1fr; }
+    .field-input { max-width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set _uname = request.session.get('username', username or 'Admin') %}
+<h1>Profile</h1>
+
+<div class="profile-grid">
+  {# Sidebar #}
+  <div class="profile-sidebar">
+    <div class="profile-avatar-card">
+      <div class="profile-avatar">{{ _uname[0].upper() }}</div>
+      <div class="profile-name">{{ _uname }}</div>
+    </div>
+  </div>
+
+  {# Main content #}
+  <div class="profile-main">
+
+    {# ── Account ── #}
+    <div class="profile-section" id="account">
+      <div class="profile-section-header">
+        <span class="profile-section-title">Account Details</span>
+      </div>
+      <div class="profile-section-body">
+        {% if username_error %}
+        <div class="alert alert-error">{{ username_error }}</div>
+        {% endif %}
+        {% if username_success %}
+        <div class="alert alert-success">{{ username_success }}</div>
+        {% endif %}
+        <form method="post" action="/profile/username">
+          <div class="field-row">
+            <label class="field-label" for="username">Username</label>
+            <input type="text" id="username" name="username" class="field-input"
+                   value="{{ username }}" autocomplete="username">
+          </div>
+          <button type="submit" class="btn btn-sm">Save Username</button>
+        </form>
+      </div>
+    </div>
+
+    {# ── Password ── #}
+    <div class="profile-section" id="password">
+      <div class="profile-section-header">
+        <span class="profile-section-title">Change Password</span>
+      </div>
+      <div class="profile-section-body">
+        {% if pw_error %}
+        <div class="alert alert-error">{{ pw_error }}</div>
+        {% endif %}
+        {% if pw_success %}
+        <div class="alert alert-success">{{ pw_success }}</div>
+        {% endif %}
+        <form method="post" action="/profile/password">
+          <div class="field-row">
+            <label class="field-label" for="current_password">Current Password</label>
+            <input type="password" id="current_password" name="current_password"
+                   class="field-input" autocomplete="current-password">
+          </div>
+          <div class="field-row">
+            <label class="field-label" for="new_password">New Password</label>
+            <input type="password" id="new_password" name="new_password"
+                   class="field-input" autocomplete="new-password">
+            <div class="field-hint">Minimum 8 characters</div>
+          </div>
+          <div class="field-row">
+            <label class="field-label" for="confirm_password">Confirm New Password</label>
+            <input type="password" id="confirm_password" name="confirm_password"
+                   class="field-input" autocomplete="new-password">
+          </div>
+          <button type="submit" class="btn btn-sm">Update Password</button>
+        </form>
+      </div>
+    </div>
+
+    {# ── Two-Factor Auth ── #}
+    <div class="profile-section" id="two-factor">
+      <div class="profile-section-header">
+        <span class="profile-section-title">Two-Factor Authentication</span>
+        {% if totp_enabled %}
+        <span class="totp-status on">● Enabled</span>
+        {% else %}
+        <span class="totp-status off">● Not Enabled</span>
+        {% endif %}
+      </div>
+      <div class="profile-section-body">
+        {% if totp_error %}
+        <div class="alert alert-error">{{ totp_error }}</div>
+        {% endif %}
+        {% if totp_success %}
+        <div class="alert alert-success">{{ totp_success }}</div>
+        {% endif %}
+
+        {% if totp_enabled %}
+        <p style="color:var(--muted);font-size:0.875rem;margin-bottom:20px;">
+          Your account is secured with an authenticator app. To disable 2FA, confirm your identity below.
+        </p>
+        <form method="post" action="/profile/totp/disable">
+          <div class="field-row">
+            <label class="field-label" for="dis_password">Password</label>
+            <input type="password" id="dis_password" name="password"
+                   class="field-input" autocomplete="current-password">
+          </div>
+          <div class="field-row">
+            <label class="field-label" for="dis_code">Authenticator Code</label>
+            <input type="text" id="dis_code" name="code" inputmode="numeric"
+                   maxlength="7" class="field-input" autocomplete="one-time-code"
+                   placeholder="000000" style="letter-spacing:4px;font-size:1.1rem;">
+          </div>
+          <button type="submit" class="btn btn-sm" style="background:rgba(231,76,60,0.15);color:var(--accent);border:1px solid rgba(231,76,60,0.3);">
+            Disable Two-Factor Auth
+          </button>
+        </form>
+        {% else %}
+        <p style="color:var(--muted);font-size:0.875rem;margin-bottom:20px;">
+          Add a second layer of security to your account. After entering your password
+          you'll also need a 6-digit code from an authenticator app such as
+          Google Authenticator, Authy, or 1Password.
+        </p>
+        <form method="post" action="/profile/totp/start-setup">
+          <button type="submit" class="btn btn-sm">Set Up Two-Factor Auth</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Passkeys ── #}
+    <div class="profile-section" id="passkeys">
+      <div class="profile-section-header">
+        <span class="profile-section-title">Passkeys</span>
+        <span style="font-size:0.8rem;color:var(--muted)">{{ passkeys|length }} registered</span>
+      </div>
+      <div class="profile-section-body">
+        {% if passkey_error %}
+        <div class="alert alert-error">{{ passkey_error }}</div>
+        {% endif %}
+        {% if passkey_success %}
+        <div class="alert alert-success">{{ passkey_success }}</div>
+        {% endif %}
+
+        <p style="color:var(--muted);font-size:0.875rem;margin-bottom:20px;line-height:1.6">
+          Sign in with a single touch using Face ID, Touch ID, Windows Hello, or a hardware security key — no username, password, or 2FA code needed.
+        </p>
+
+        {% if passkeys %}
+        <div style="margin-bottom:20px">
+          {% for pk in passkeys %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px">
+            <div>
+              <div style="font-size:0.9rem;font-weight:500">{{ pk.name }}</div>
+              <div style="font-size:0.75rem;color:var(--muted)">Added {{ pk.created_at[:10] }}</div>
+            </div>
+            <form method="post" action="/profile/passkey/delete/{{ pk.id }}" onsubmit="return confirm('Remove this passkey?')">
+              <button type="submit" class="btn btn-sm" style="background:rgba(231,76,60,0.1);color:var(--accent);border:1px solid rgba(231,76,60,0.3)">Remove</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div>
+            <label class="field-label" for="passkey-name">Name</label>
+            <input type="text" id="passkey-name" class="field-input" style="max-width:240px"
+                   placeholder="e.g. MacBook Touch ID" value="My Passkey">
+          </div>
+          <button type="button" class="btn btn-sm" id="add-passkey-btn" onclick="registerPasskey()">Add a Passkey</button>
+        </div>
+        <div id="passkey-reg-msg" style="margin-top:10px;font-size:0.875rem"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function _b64urlDecode(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  const bin = atob(s);
+  return Uint8Array.from(bin, c => c.charCodeAt(0)).buffer;
+}
+function _b64urlEncode(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function registerPasskey() {
+  const btn = document.getElementById('add-passkey-btn');
+  const msg = document.getElementById('passkey-reg-msg');
+  const name = (document.getElementById('passkey-name').value || '').trim() || 'My Passkey';
+  btn.disabled = true;
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Waiting for authenticator\u2026';
+  try {
+    const r1 = await fetch('/profile/passkey/register/begin');
+    if (!r1.ok) { const e = await r1.json(); throw new Error(e.error); }
+    const options = await r1.json();
+
+    options.challenge = _b64urlDecode(options.challenge);
+    options.user.id = _b64urlDecode(options.user.id);
+    if (options.excludeCredentials) {
+      options.excludeCredentials = options.excludeCredentials.map(c => ({...c, id: _b64urlDecode(c.id)}));
+    }
+
+    const cred = await navigator.credentials.create({ publicKey: options });
+
+    const credJson = {
+      id: cred.id,
+      rawId: _b64urlEncode(cred.rawId),
+      type: cred.type,
+      response: {
+        clientDataJSON: _b64urlEncode(cred.response.clientDataJSON),
+        attestationObject: _b64urlEncode(cred.response.attestationObject),
+      },
+    };
+
+    const r2 = await fetch('/profile/passkey/register/complete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name, credential: credJson }),
+    });
+    const result = await r2.json();
+    if (!r2.ok) throw new Error(result.error);
+
+    msg.style.color = 'var(--green)';
+    msg.textContent = '\u2713 Passkey added. Reloading\u2026';
+    setTimeout(() => location.reload(), 800);
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      msg.style.color = 'var(--muted)';
+      msg.textContent = 'Cancelled.';
+    } else {
+      msg.style.color = 'var(--accent)';
+      msg.textContent = 'Error: ' + (e.message || e);
+    }
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}
