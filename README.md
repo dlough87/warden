@@ -1,5 +1,8 @@
 # Warden
 
+> [!WARNING]
+> **Use at your own risk.** Warden permanently deletes media files from disk. The author accepts no responsibility for any data loss, accidental deletion, or damage caused by using this software. Always start with **dry run mode enabled** and review the Death Row list carefully before allowing real deletions.
+
 Warden automatically removes stale movies and TV shows from your Plex library. It works by connecting to Radarr and Sonarr (to manage your library) and Plex + Tautulli (to track what's been watched), then applies your own rules to decide what gets condemned and eventually deleted.
 
 ## Features
