@@ -47,6 +47,13 @@ async def run_scan():
     _scan_running = True
     try:
         await _do_scan()
+    except Exception as e:
+        log.exception("Scan failed with unhandled error")
+        try:
+            await notifications.dispatch("scan_error", error=str(e))
+        except Exception:
+            pass
+        raise
     finally:
         _scan_running = False
 

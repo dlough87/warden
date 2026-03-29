@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import logging
 from datetime import datetime, timezone
@@ -53,9 +54,13 @@ class SonarrClient:
 
     async def get_series_detail(self, arr_id: int) -> dict:
         async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.get(f"{self.base}/api/v3/series/{arr_id}", headers=self.headers)
-            r.raise_for_status()
-            s = r.json()
+            s_r, tags_r = await asyncio.gather(
+                client.get(f"{self.base}/api/v3/series/{arr_id}", headers=self.headers),
+                client.get(f"{self.base}/api/v3/tag", headers=self.headers),
+            )
+            s_r.raise_for_status()
+            s = s_r.json()
+            tag_map = {t["id"]: t["label"] for t in tags_r.json()} if tags_r.is_success else {}
         stats = s.get("statistics") or {}
         return {
             "imdb_id": s.get("imdbId"),
@@ -69,6 +74,7 @@ class SonarrClient:
             "season_count": stats.get("seasonCount"),
             "episode_count": stats.get("episodeCount"),
             "episode_file_count": stats.get("episodeFileCount"),
+            "tags": [tag_map.get(t, str(t)) for t in (s.get("tags") or [])],
         }
 
     async def add_exclusion(self, tvdb_id: int, title: str):

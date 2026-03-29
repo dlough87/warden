@@ -513,6 +513,15 @@ async def pardon_item(item_id: str, reason: str):
         await db.commit()
 
 
+async def unpardon_item(item_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE media_items SET status='ok', pardon_reason=NULL, death_row_date=NULL, updated_at=? WHERE id=?",
+            (now_iso(), item_id),
+        )
+        await db.commit()
+
+
 async def start_scan_run(dry_run: bool) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(

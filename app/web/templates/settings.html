@@ -49,12 +49,39 @@
 
     <div class="form-row">
       <div class="form-group">
-        <label>
-          <input type="checkbox" name="dry_run" {% if settings.get("dry_run") == "true" %}checked{% endif %}
-                 style="width:auto;margin-right:8px">
-          Dry Run Mode
-        </label>
-        <p class="form-hint">When enabled, no media is ever deleted. Discord notifications still fire.</p>
+        <label style="margin-bottom:10px;display:block;font-weight:600">Deletion Mode</label>
+        <input type="hidden" name="dry_run" id="dry_run_input" value="{{ settings.get('dry_run', 'true') }}">
+        <div id="mode-toggle" onclick="toggleDryRun()"
+             style="display:inline-flex;border-radius:8px;overflow:hidden;cursor:pointer;user-select:none;border:1px solid var(--border);font-size:0.85rem;font-weight:600;letter-spacing:0.3px">
+          <div id="mode-live" style="padding:8px 20px;transition:background 0.2s,color 0.2s">LIVE</div>
+          <div id="mode-dry" style="padding:8px 20px;transition:background 0.2s,color 0.2s">DRY RUN</div>
+        </div>
+        <p class="form-hint" style="margin-top:8px">In <strong>DRY RUN</strong> mode no media is ever deleted. Notifications still fire. Switch to <strong>LIVE</strong> when you're confident in your rules.</p>
+        <script>
+          (function() {
+            function applyState(isDry) {
+              var live = document.getElementById('mode-live');
+              var dry  = document.getElementById('mode-dry');
+              document.getElementById('dry_run_input').value = isDry ? 'true' : 'false';
+              if (isDry) {
+                live.style.background = 'transparent';
+                live.style.color = 'var(--muted)';
+                dry.style.background = '#b7860088';
+                dry.style.color = '#f0c040';
+              } else {
+                live.style.background = '#1a6b3a88';
+                live.style.color = '#4caf7d';
+                dry.style.background = 'transparent';
+                dry.style.color = 'var(--muted)';
+              }
+            }
+            window.toggleDryRun = function() {
+              var current = document.getElementById('dry_run_input').value === 'true';
+              applyState(!current);
+            };
+            applyState({{ 'true' if settings.get('dry_run', 'true') == 'true' else 'false' }});
+          })();
+        </script>
       </div>
       <div class="form-group">
         <label for="death_row_days">Days on Death Row Before Condemnation</label>
