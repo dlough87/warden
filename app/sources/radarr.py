@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import logging
 from datetime import datetime, timezone
@@ -58,9 +59,13 @@ class RadarrClient:
 
     async def get_movie_detail(self, arr_id: int) -> dict:
         async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.get(f"{self.base}/api/v3/movie/{arr_id}", headers=self.headers)
-            r.raise_for_status()
-            m = r.json()
+            m_r, tags_r = await asyncio.gather(
+                client.get(f"{self.base}/api/v3/movie/{arr_id}", headers=self.headers),
+                client.get(f"{self.base}/api/v3/tag", headers=self.headers),
+            )
+            m_r.raise_for_status()
+            m = m_r.json()
+            tag_map = {t["id"]: t["label"] for t in tags_r.json()} if tags_r.is_success else {}
         mf = m.get("movieFile") or {}
         return {
             "imdb_id": m.get("imdbId"),
@@ -72,6 +77,7 @@ class RadarrClient:
             "title_slug": m.get("titleSlug"),
             "file_path": mf.get("path"),
             "quality": (mf.get("quality") or {}).get("quality", {}).get("name"),
+            "tags": [tag_map.get(t, str(t)) for t in (m.get("tags") or [])],
         }
 
     async def add_exclusion(self, tmdb_id: int, title: str, year: int | None):

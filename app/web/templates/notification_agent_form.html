@@ -196,7 +196,7 @@
           <label style="display:flex;align-items:center;gap:10px;font-weight:normal;cursor:pointer">
             <input type="checkbox" name="event_{{ event_key }}" style="width:auto"
                    id="evt_{{ event_key }}"
-                   {% if event_key in evts or (is_new and event_key != 'clean_scan') %}checked{% endif %}
+                   {% if event_key in evts or (is_new and event_key not in ('clean_scan', 'scan_error')) %}checked{% endif %}
                    {% if event_key == 'reminder' %}onchange="toggleReminderDays(this)"{% endif %}>
             <span>{{ event_icon }} {{ event_label }}</span>
           </label>

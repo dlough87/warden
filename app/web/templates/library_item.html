@@ -35,10 +35,13 @@
         {% if item.year %}<span style="color:var(--muted);font-weight:400;font-size:1.4rem">({{ item.year }})</span>{% endif %}
       </h1>
 
-      {% if item.genres %}
+      {% if item.genres or arr.tags %}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
         {% for genre in item.genres %}
           <span style="background:rgba(255,255,255,0.06);color:var(--muted);padding:2px 10px;border-radius:12px;font-size:0.8rem">{{ genre }}</span>
+        {% endfor %}
+        {% for tag in arr.tags %}
+          <span style="background:rgba(99,102,241,0.15);color:#a5b4fc;padding:2px 10px;border-radius:12px;font-size:0.8rem">{{ tag }}</span>
         {% endfor %}
       </div>
       {% endif %}
@@ -219,8 +222,13 @@
   </div>
 
   {% elif item.status == "pardoned" %}
-  <div style="color:var(--green)">
-    ✓ Pardoned{% if item.pardon_reason %} — <em style="color:var(--muted)">{{ item.pardon_reason }}</em>{% endif %}
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="color:var(--green)">
+      ✓ Pardoned{% if item.pardon_reason %} — <em style="color:var(--muted)">{{ item.pardon_reason }}</em>{% endif %}
+    </div>
+    <form method="POST" action="/library/{{ item.id | urlencode }}/unpardon">
+      <button type="submit" class="btn btn-ghost btn-sm">Remove Pardon</button>
+    </form>
   </div>
   {% endif %}
 </div>

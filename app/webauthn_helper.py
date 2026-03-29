@@ -50,7 +50,7 @@ def generate_registration_options(
         "excludeCredentials": [
             {
                 "type": "public-key",
-                "id": _b64url_encode(c["id"]) if isinstance(c["id"], bytes) else c["id"],
+                "id": _b64url_encode(c["credential_id"]),
             }
             for c in (exclude_credentials or [])
         ],

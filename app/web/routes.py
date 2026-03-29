@@ -1,6 +1,8 @@
 import base64
 import json
 import logging
+import time
+from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from ..auth import (
 from ..config import get_config_async
 from ..database import (
     get_stats, get_recent_scan_runs, get_media_items, get_media_item,
-    pardon_item, get_rules, get_rule, upsert_rule, delete_rule,
+    pardon_item, unpardon_item, get_rules, get_rule, upsert_rule, delete_rule,
     get_all_settings, get_setting, set_setting, get_library_page,
     get_notification_agents, get_notification_agent,
     upsert_notification_agent, delete_notification_agent,
@@ -35,6 +37,25 @@ from ..sources.radarr import RadarrClient
 from ..sources.sonarr import SonarrClient
 
 log = logging.getLogger(__name__)
+
+# ── Login rate limiting ────────────────────────────────────────────────────────
+_login_attempts: dict[str, list[float]] = defaultdict(list)
+_RATE_LIMIT_MAX  = 5   # failed attempts
+_RATE_LIMIT_SECS = 60  # sliding window
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = time.monotonic()
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < _RATE_LIMIT_SECS]
+    return len(_login_attempts[ip]) >= _RATE_LIMIT_MAX
+
+
+def _record_failure(ip: str):
+    _login_attempts[ip].append(time.monotonic())
+
+
+def _clear_failures(ip: str):
+    _login_attempts.pop(ip, None)
 
 
 def _b64url_encode(b: bytes) -> str:
@@ -120,18 +141,27 @@ async def login_get(request: Request, next: str = "/"):
 
 @auth_router.post("/login", response_class=HTMLResponse)
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...), next: str = Form(default="/")):
+    ip = request.client.host
+    if _is_rate_limited(ip):
+        return templates.TemplateResponse("login.html", {
+            "request": request, "next": next, "username_value": username,
+            "error": "Too many failed attempts. Please wait a minute and try again.",
+        }, status_code=429)
     pw_hash = await get_auth_password_hash()
     if not pw_hash:
         return RedirectResponse("/setup", status_code=302)
     stored_username = await get_auth_username()
-    _error_resp = lambda: templates.TemplateResponse("login.html", {
-        "request": request, "next": next, "username_value": username, "error": "Incorrect username or password."
-    })
+    def _error_resp():
+        _record_failure(ip)
+        return templates.TemplateResponse("login.html", {
+            "request": request, "next": next, "username_value": username, "error": "Incorrect username or password."
+        })
     if username.strip().lower() != (stored_username or "").strip().lower():
         return _error_resp()
     if not verify_password(password, pw_hash):
         return _error_resp()
     # Credentials OK — check if TOTP is required.
+    _clear_failures(ip)
     username = stored_username
     if await is_totp_enabled():
         request.session["pw_verified"] = True
@@ -154,13 +184,20 @@ async def totp_login_get(request: Request):
 async def totp_login_post(request: Request, code: str = Form(...)):
     if not request.session.get("pw_verified"):
         return RedirectResponse("/login", status_code=302)
+    ip = request.client.host
+    if _is_rate_limited(ip):
+        return templates.TemplateResponse("totp_login.html", {
+            "request": request, "error": "Too many failed attempts. Please wait a minute and try again.",
+        }, status_code=429)
     secret = await get_totp_secret()
     if secret and verify_totp(secret, code):
+        _clear_failures(ip)
         request.session.pop("pw_verified", None)
         next_url = request.session.pop("totp_next", "/")
         request.session["username"] = request.session.pop("pending_username", "Admin")
         request.session["authenticated"] = True
         return RedirectResponse(next_url or "/", status_code=302)
+    _record_failure(ip)
     return templates.TemplateResponse("totp_login.html", {"request": request, "error": "Invalid code. Please try again."})
 
 
@@ -175,15 +212,22 @@ async def backup_login_get(request: Request):
 async def backup_login_post(request: Request, backup_code: str = Form(...)):
     if not request.session.get("pw_verified"):
         return RedirectResponse("/login", status_code=302)
+    ip = request.client.host
+    if _is_rate_limited(ip):
+        return templates.TemplateResponse("totp_backup_login.html", {
+            "request": request, "error": "Too many failed attempts. Please wait a minute and try again.",
+        }, status_code=429)
     hashes = await get_totp_backup_hashes()
     matched, remaining = verify_and_consume_backup_code(backup_code, hashes)
     if matched:
+        _clear_failures(ip)
         await set_totp_backup_hashes(remaining)
         request.session.pop("pw_verified", None)
         next_url = request.session.pop("totp_next", "/")
         request.session["username"] = request.session.pop("pending_username", "Admin")
         request.session["authenticated"] = True
         return RedirectResponse(next_url or "/", status_code=302)
+    _record_failure(ip)
     return templates.TemplateResponse("totp_backup_login.html", {"request": request, "error": "Invalid backup code."})
 
 
@@ -208,6 +252,9 @@ async def passkey_login_begin(request: Request, next: str = "/"):
 
 @auth_router.post("/login/passkey/complete")
 async def passkey_login_complete(request: Request):
+    ip = request.client.host
+    if _is_rate_limited(ip):
+        return JSONResponse({"error": "Too many failed attempts. Please wait a minute and try again."}, status_code=429)
     challenge_b64 = request.session.pop("passkey_auth_challenge", None)
     if not challenge_b64:
         return JSONResponse({"error": "Session expired. Please try again."}, status_code=400)
@@ -219,6 +266,7 @@ async def passkey_login_complete(request: Request):
         raw_id = _b64url_decode(body["rawId"])
         passkey = await get_passkey_by_credential_id(raw_id)
         if not passkey:
+            _record_failure(ip)
             return JSONResponse({"error": "Passkey not recognised."}, status_code=400)
         verification = _wh.verify_authentication_response(
             credential=body,
@@ -229,6 +277,7 @@ async def passkey_login_complete(request: Request):
             credential_current_sign_count=passkey["sign_count"],
         )
         await update_passkey_sign_count(raw_id, verification.new_sign_count)
+        _clear_failures(ip)
         username = await get_auth_username()
         request.session["authenticated"] = True
         request.session["username"] = username
@@ -236,6 +285,7 @@ async def passkey_login_complete(request: Request):
         await log_audit("Passkey login", ip=request.client.host)
         return JSONResponse({"ok": True, "redirect": next_url or "/"})
     except Exception as e:
+        _record_failure(ip)
         log.warning("Passkey auth failed: %s", e)
         return JSONResponse({"error": "Authentication failed."}, status_code=400)
 
@@ -632,6 +682,15 @@ async def library_item_pardon(request: Request, item_id: str, reason: str = Form
     return RedirectResponse(f"/library/{item_id}", status_code=303)
 
 
+@router.post("/library/{item_id}/unpardon", response_class=HTMLResponse)
+async def library_item_unpardon(request: Request, item_id: str):
+    item = await get_media_item(item_id)
+    await unpardon_item(item_id)
+    title = item["title"] if item else item_id
+    await log_audit("Item unpardoned", title, request.client.host)
+    return RedirectResponse(f"/library/{item_id}", status_code=303)
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 def _get_timezones() -> dict[str, list[str]]:
@@ -679,7 +738,7 @@ async def save_settings(request: Request):
     form = await request.form()
     await log_audit("General settings saved", ip=request.client.host)
 
-    await set_setting("dry_run", "true" if "dry_run" in form else "false")
+    await set_setting("dry_run", "true" if form.get("dry_run") == "true" else "false")
 
     for key in ("watch_threshold_percent", "tv_watched_definition", "death_row_days", "timezone"):
         value = form.get(key)
@@ -844,6 +903,7 @@ ALL_EVENTS = [
     ("reminder",   "⏳", "Death row reminders"),
     ("deleted",    "🗑️",  "Items deleted"),
     ("clean_scan", "✅", "Clean scan"),
+    ("scan_error", "⚠️",  "Scan failed"),
 ]
 
 

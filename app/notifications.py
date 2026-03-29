@@ -19,7 +19,7 @@ from datetime import date
 log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 20  # Discord embeds per message (other agents truncate at CHUNK_SIZE * 1 batch)
-EVENTS = ["condemned", "reminder", "deleted", "clean_scan"]
+EVENTS = ["condemned", "reminder", "deleted", "clean_scan", "scan_error"]
 
 # Discord embed colours
 _COLOR_RED    = 0xE74C3C
@@ -106,6 +106,10 @@ def _build_text_body(event: str, **kwargs) -> tuple[str, str]:
         item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
         suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
         body = f"{'Would free' if dry else 'Freed'} {_format_size(space_freed)} of disk space.\n\n{item_lines}{suffix}"
+
+    elif event == "scan_error":
+        title = "⚠️ Warden Scan Failed"
+        body = f"An error occurred during the scheduled scan:\n\n{kwargs.get('error', 'Unknown error')}"
 
     else:  # clean_scan
         title = f"✅ Warden Scan Complete{dry_tag}"
@@ -208,6 +212,16 @@ async def _send_discord(agent: dict, event: str, **kwargs):
                     "footer": {"text": "Warden • Dry run — no files were touched" if dry else "Warden"},
                 }],
             })
+
+    elif event == "scan_error":
+        await post({
+            "embeds": [{
+                "title": "⚠️ Warden Scan Failed",
+                "description": f"An error occurred during the scheduled scan:\n```\n{kwargs.get('error', 'Unknown error')}\n```",
+                "color": _COLOR_RED,
+                "footer": {"text": "Warden • Check the server log for details"},
+            }],
+        })
 
     else:  # clean_scan
         await post({
