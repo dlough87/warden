@@ -7,15 +7,47 @@
 
 {% if settings.get("dry_run") == "true" %}
 <div class="alert alert-warning">
-  ⚠️ <strong>Dry Run mode is active.</strong> No items will actually be deleted. Toggle in <a href="/settings">Settings</a>.
+  ⚠️ <strong>Dry Run mode is active.</strong> No items will actually be executed. Toggle in <a href="/settings">Settings</a>.
+</div>
+{% endif %}
+
+{% if request.query_params.get('bulk_error') == 'expedite_not_configured' %}
+<div class="alert alert-warning">
+  ⚠️ Expedite Days not configured — set it in <a href="/settings">Settings</a> before using Expedite Execution.
 </div>
 {% endif %}
 
 {% if items %}
+
+{# ── Pardon reason modal ───────────────────────────────────────────────────── #}
+<div id="pardon-modal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.55);align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:420px;max-width:calc(100vw - 32px)">
+    <h2 style="font-size:1rem;font-weight:600;margin-bottom:6px" id="pardon-modal-title">Pardon Item</h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px" id="pardon-modal-subtitle">Enter an optional reason for the pardon record.</p>
+    <input type="text" id="pardon-reason-input" placeholder="Reason (optional)"
+           style="width:100%;margin-bottom:16px"
+           onkeydown="if(event.key==='Enter'){submitPardon();} if(event.key==='Escape'){closePardonModal();}">
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="closePardonModal()">Cancel</button>
+      <button class="btn btn-ghost btn-sm" onclick="submitPardon()">Pardon</button>
+    </div>
+  </div>
+</div>
+
+{# ── Bulk action toolbar ───────────────────────────────────────────────────── #}
+<div id="bulk-bar" style="display:none;position:sticky;top:8px;z-index:10;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;margin-bottom:12px;align-items:center;gap:16px">
+  <span id="bulk-count" style="font-size:0.85rem;color:var(--muted)">0 selected</span>
+  <div style="display:flex;gap:8px">
+    <button type="button" class="btn btn-ghost btn-sm" onclick="openBulkPardonModal()">Pardon Selected</button>
+    <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent);border-color:rgba(231,76,60,0.4)" onclick="submitBulk('expedite')">Expedite Selected</button>
+  </div>
+</div>
+
 <div class="card">
   <table>
     <thead>
       <tr>
+        <th style="width:32px"><input type="checkbox" id="select-all" title="Select all"></th>
         <th><a href="{{ sort_url('title') }}" style="color:inherit">Title {% if sort=='title' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
         <th>Type</th>
         <th><a href="{{ sort_url('imdb_rating') }}" style="color:inherit">Rating {% if sort=='imdb_rating' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
@@ -29,6 +61,7 @@
     <tbody id="death-row-table">
     {% for item in items %}
     <tr id="row-{{ item.id | replace(':', '-') }}">
+      <td><input type="checkbox" class="row-check" value="{{ item.id }}" onchange="updateBulkBar()"></td>
       <td><a href="/library/{{ item.id | urlencode }}" style="color:var(--text);font-weight:600" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text)'">{{ item.title }}</a> {% if item.year %}<span style="color:var(--muted)">({{ item.year }})</span>{% endif %}</td>
       <td>
         {% if item.media_type == "movie" %}<span class="badge badge-movie">Movie</span>
@@ -46,16 +79,17 @@
         {% else %}—{% endif %}
       </td>
       <td>
-        <div class="pardon-form">
-          <input type="text" id="reason-{{ loop.index }}" placeholder="Reason to pardon..." style="width:180px">
+        <div style="display:flex;gap:6px;align-items:center">
           <button class="btn btn-ghost btn-sm"
-                  hx-post="/death-row/{{ item.id | urlencode }}/pardon"
-                  hx-include="#reason-{{ loop.index }}"
-                  hx-vals='{"reason": ""}'
-                  hx-target="#row-{{ item.id | replace(':', '-') }}"
-                  hx-swap="outerHTML"
-                  onclick="this.setAttribute('hx-vals', JSON.stringify({reason: document.getElementById('reason-{{ loop.index }}').value}))">
+                  onclick="openPardonModal('{{ item.id | urlencode }}', '{{ item.title | replace("'", "\\'") }}')">
             Pardon
+          </button>
+          <button class="btn btn-ghost btn-sm"
+                  style="color:var(--accent);border-color:rgba(231,76,60,0.3)"
+                  hx-post="/death-row/{{ item.id | urlencode }}/expedite"
+                  hx-target="#row-{{ item.id | replace(':', '-') }}"
+                  hx-swap="innerHTML">
+            Expedite
           </button>
         </div>
       </td>
@@ -64,6 +98,103 @@
     </tbody>
   </table>
 </div>
+
+{# Hidden bulk form (submitted programmatically) #}
+<form method="POST" action="/death-row/bulk" id="bulk-form" style="display:none">
+  <input type="hidden" name="action" id="bulk-action" value="">
+  <input type="hidden" name="bulk_reason" id="bulk-reason" value="">
+</form>
+
+<script>
+  // ── Single-item pardon modal ──
+  var _pardonItemId = null;
+
+  function openPardonModal(itemId, title) {
+    _pardonItemId = itemId;
+    document.getElementById('pardon-modal-title').textContent = 'Pardon: ' + title;
+    document.getElementById('pardon-modal-subtitle').textContent = 'Enter an optional reason for the pardon record.';
+    document.getElementById('pardon-reason-input').value = '';
+    document.getElementById('pardon-modal').style.display = 'flex';
+    setTimeout(function() { document.getElementById('pardon-reason-input').focus(); }, 50);
+  }
+
+  function closePardonModal() {
+    _pardonItemId = null;
+    _bulkPardon = false;
+    document.getElementById('pardon-modal').style.display = 'none';
+  }
+
+  function submitPardon() {
+    var reason = document.getElementById('pardon-reason-input').value;
+    if (_bulkPardon) {
+      document.getElementById('bulk-reason').value = reason;
+      document.getElementById('bulk-action').value = 'pardon';
+      var form = document.getElementById('bulk-form');
+      // inject checked ids
+      form.querySelectorAll('input[name="ids"]').forEach(function(e) { e.remove(); });
+      document.querySelectorAll('.row-check:checked').forEach(function(c) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'ids'; inp.value = c.value;
+        form.appendChild(inp);
+      });
+      closePardonModal();
+      form.submit();
+    } else if (_pardonItemId) {
+      // htmx single pardon
+      var row = document.getElementById('row-' + _pardonItemId.replace(/:/g, '-'));
+      htmx.ajax('POST', '/death-row/' + _pardonItemId + '/pardon', {
+        target: row,
+        swap: 'outerHTML',
+        values: { reason: reason }
+      });
+      closePardonModal();
+    }
+  }
+
+  // ── Bulk actions ──
+  var _bulkPardon = false;
+
+  function updateBulkBar() {
+    var checked = document.querySelectorAll('.row-check:checked');
+    var bar = document.getElementById('bulk-bar');
+    bar.style.display = checked.length ? 'flex' : 'none';
+    document.getElementById('bulk-count').textContent = checked.length + ' selected';
+  }
+
+  function openBulkPardonModal() {
+    var count = document.querySelectorAll('.row-check:checked').length;
+    _bulkPardon = true;
+    _pardonItemId = null;
+    document.getElementById('pardon-modal-title').textContent = 'Pardon ' + count + ' item' + (count !== 1 ? 's' : '');
+    document.getElementById('pardon-modal-subtitle').textContent = 'Enter an optional reason applied to all selected items.';
+    document.getElementById('pardon-reason-input').value = '';
+    document.getElementById('pardon-modal').style.display = 'flex';
+    setTimeout(function() { document.getElementById('pardon-reason-input').focus(); }, 50);
+  }
+
+  function submitBulk(action) {
+    document.getElementById('bulk-action').value = action;
+    var form = document.getElementById('bulk-form');
+    form.querySelectorAll('input[name="ids"]').forEach(function(e) { e.remove(); });
+    document.querySelectorAll('.row-check:checked').forEach(function(c) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'ids'; inp.value = c.value;
+      form.appendChild(inp);
+    });
+    form.submit();
+  }
+
+  document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('.row-check').forEach(function(c) { c.checked = this.checked; }.bind(this));
+    updateBulkBar();
+  });
+
+  // Close modal on backdrop click
+  document.getElementById('pardon-modal').addEventListener('click', function(e) {
+    if (e.target === this) closePardonModal();
+  });
+</script>
+
 {% else %}
 <div class="card"><p class="empty">No items on death row. Library is clean! 🎉</p></div>
 {% endif %}

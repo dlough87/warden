@@ -90,10 +90,10 @@
   </p>
   <p>Key principles:</p>
   <ul>
-    <li><strong>Non-destructive by default</strong> — Warden ships with Dry Run mode enabled. Nothing is deleted until you turn it off.</li>
-    <li><strong>Grace period built in</strong> — Condemned items sit on Death Row for a configurable number of days before deletion, giving you time to review and pardon anything that shouldn't be removed.</li>
-    <li><strong>Fully reversible until deletion</strong> — Pardoning an item permanently protects it from all future rule evaluations.</li>
-    <li><strong>Exclusion list integration</strong> — Deleted items are added to Radarr/Sonarr's import exclusion list so they aren't auto-imported again.</li>
+    <li><strong>Non-destructive by default</strong> — Warden ships with Dry Run mode enabled. Nothing is executed until you turn it off.</li>
+    <li><strong>Grace period built in</strong> — Condemned items sit on Death Row for a configurable number of days before execution, giving you time to review and pardon anything that shouldn't be removed.</li>
+    <li><strong>Fully reversible until execution</strong> — Pardoning an item permanently protects it from all future rule evaluations.</li>
+    <li><strong>Exclusion list integration</strong> — Executed items are added to Radarr/Sonarr's import exclusion list so they aren't auto-imported again.</li>
   </ul>
 
   {# ── 2. How It Works ── #}
@@ -109,9 +109,9 @@
     <div class="flow-arrow">↓</div>
     <div class="flow-step"><strong>4. Update database</strong> — All status changes are written in a single batch transaction</div>
     <div class="flow-arrow">↓</div>
-    <div class="flow-step"><strong>5. Send notifications</strong> — Newly condemned items, reminders, and deletions are dispatched to configured agents</div>
+    <div class="flow-step"><strong>5. Send notifications</strong> — Newly condemned items, reminders, and executions are dispatched to configured agents</div>
     <div class="flow-arrow">↓</div>
-    <div class="flow-step"><strong>6. Execute deletions</strong> — Items whose Death Row sentence has expired are deleted from Radarr/Sonarr (skipped in Dry Run)</div>
+    <div class="flow-step"><strong>6. Execute</strong> — Items whose Death Row sentence has expired are executed via Radarr/Sonarr (skipped in Dry Run)</div>
   </div>
 
   <h3>Item Status Lifecycle</h3>
@@ -162,15 +162,15 @@
   <p>Disable any rule you don't want to apply and adjust the thresholds to suit your library. See <a href="#rules">Section 6</a> for a full explanation of all rule criteria.</p>
 
   <h3>Step 3 — Set up a notification agent</h3>
-  <p>Go to <strong>Settings → Notification Agents → + Add Agent</strong> and configure at least one agent so you receive alerts before items are deleted. Discord webhooks are the most popular choice for home setups. See <a href="#notifications">Section 10</a> for full details.</p>
+  <p>Go to <strong>Settings → Notification Agents → + Add Agent</strong> and configure at least one agent so you receive alerts before items are executed. Discord webhooks are the most popular choice for home setups. See <a href="#notifications">Section 10</a> for full details.</p>
 
   <h3>Step 4 — Run a test scan in Dry Run mode</h3>
-  <p>Click <strong>Run Scan</strong> on the Dashboard. Because Dry Run is enabled by default, nothing will be deleted. After the scan completes, check <strong>Death Row</strong> and <strong>Candidates</strong> to see which items would be condemned. Pardon anything that looks wrong.</p>
+  <p>Click <strong>Run Scan</strong> on the Dashboard. Because Dry Run is enabled by default, nothing will be executed. After the scan completes, check <strong>Death Row</strong> and <strong>Candidates</strong> to see which items would be condemned. Pardon anything that looks wrong.</p>
 
   <h3>Step 5 — Disable Dry Run when you're ready</h3>
-  <p>Once you're confident in your rules, go to <strong>Settings</strong> and uncheck <strong>Dry Run mode</strong>. The orange <code>DRY RUN</code> badge in the navigation bar will disappear. From this point, items that complete their death row sentence will be permanently deleted.</p>
+  <p>Once you're confident in your rules, go to <strong>Settings</strong> and uncheck <strong>Dry Run mode</strong>. The orange <code>DRY RUN</code> badge in the navigation bar will disappear. From this point, items that complete their death row sentence will be executed.</p>
   <div class="callout callout-danger">
-    <p><strong>Warning:</strong> Deletion is permanent. Files are removed from disk and the item is added to the Radarr/Sonarr import exclusion list. Always review Death Row regularly and pardon items you want to keep.</p>
+    <p><strong>Warning:</strong> Execution is permanent. Files are removed from disk and the item is added to the Radarr/Sonarr import exclusion list. Always review Death Row regularly and pardon items you want to keep.</p>
   </div>
 
   {# ── 4. Account Security ── #}
@@ -268,7 +268,7 @@ volumes:
     <tbody>
       <tr><td>Condemned Items</td><td>Number of items currently on death row and their total disk footprint</td></tr>
       <tr><td>Last Scan</td><td>When the most recent scan started and completed</td></tr>
-      <tr><td>Scan History</td><td>Last 5 scan runs with condemned count, deleted count, and space freed</td></tr>
+      <tr><td>Scan History</td><td>Last 5 scan runs with condemned count, executed count, and space freed</td></tr>
       <tr><td>Run Scan button</td><td>Triggers an immediate scan outside of the scheduled window</td></tr>
     </tbody>
   </table>
@@ -276,7 +276,7 @@ volumes:
 
   {# ── 6. Rules ── #}
   <h2 id="rules">6. Rules</h2>
-  <p>Rules define which items become candidates for deletion. An item must satisfy <strong>every criterion</strong> within a single rule to be condemned — all conditions within a rule are AND logic. A match on <em>any</em> rule is sufficient to condemn an item.</p>
+  <p>Rules define which items become candidates for execution. An item must satisfy <strong>every criterion</strong> within a single rule to be condemned — all conditions within a rule are AND logic. A match on <em>any</em> rule is sufficient to condemn an item.</p>
 
   <h3>Criteria reference</h3>
   <table>
@@ -310,13 +310,13 @@ volumes:
 
   {# ── 7. Death Row ── #}
   <h2 id="death-row">7. Death Row</h2>
-  <p>Death Row shows every item that has been condemned and is awaiting deletion. The countdown timer is based on the <strong>Death Row Days</strong> setting (default 30 days). An item's timer starts the day it is first condemned and does not reset if it continues to match rules on subsequent scans.</p>
+  <p>Death Row shows every item that has been condemned and is awaiting execution. The countdown timer is based on the <strong>Death Row Days</strong> setting (default 30 days). An item's timer starts the day it is first condemned and does not reset if it continues to match rules on subsequent scans.</p>
 
   <h3>Days Left column</h3>
-  <p>Items with 7 or fewer days left are highlighted in red. Items due for deletion <em>today</em> show "Today" — they will be deleted on the next scan that runs in live mode.</p>
+  <p>Items with 7 or fewer days left are highlighted in red. Items due for execution <em>today</em> show "Today" — they will be executed on the next scan that runs in live mode.</p>
 
   <h3>Sorting</h3>
-  <p>Click any column header to sort by that field. Click again to reverse the direction. The default sort is by Days Left ascending (soonest deletion first).</p>
+  <p>Click any column header to sort by that field. Click again to reverse the direction. The default sort is by Days Left ascending (soonest execution first).</p>
 
   <h3>Pardoning an item</h3>
   <p>To permanently protect an item, enter an optional reason in the text box next to it and click <strong>Pardon</strong>. Pardoned items:</p>
@@ -327,15 +327,27 @@ volumes:
     <li>Can still be viewed in detail, including all watch statistics</li>
   </ul>
   <div class="callout">
-    <p><strong>Tip:</strong> There is no "unpardon" button in the current UI. If you pardon an item by mistake, it will simply be protected forever — which in practice is harmless.</p>
+    <p><strong>Tip:</strong> To remove a pardon, open the item's detail page in the Library and click <strong>Remove Pardon</strong>. The item's death row timer will reset from the next scan it matches a rule on.</p>
   </div>
+
+  <h3>Expedite Execution</h3>
+  <p>If you're certain an item should be deleted but don't want to wait out its full sentence, click <strong>Expedite</strong> next to it. This collapses its countdown to the number of days configured in <strong>Settings → Expedite Execution Days</strong> — regardless of how many days were previously remaining.</p>
+  <p>For example, if Expedite Days is set to 1, clicking Expedite schedules the item for deletion on the next scan tomorrow. If Expedite Days is not configured in Settings, an inline error message will appear.</p>
+
+  <h3>Bulk actions</h3>
+  <p>Use the checkboxes on the left side of each row to select multiple items. A bulk action toolbar will appear at the top of the table once at least one item is selected:</p>
+  <ul>
+    <li><strong>Pardon Selected</strong> — pardons all selected items in one action</li>
+    <li><strong>Expedite Selected</strong> — expedites all selected items to the configured Expedite Days. Requires Expedite Days to be set in Settings.</li>
+  </ul>
+  <p>Use the checkbox in the table header to select or deselect all items at once.</p>
 
   {# ── 8. Candidates ── #}
   <h2 id="candidates">8. Candidates</h2>
-  <p>The Candidates page shows the same condemned items as Death Row, but grouped by the rule that matched them. This is useful for auditing your rules: you can quickly see which rule is responsible for the most deletions and whether the results look correct.</p>
+  <p>The Candidates page shows the same condemned items as Death Row, but grouped by the rule that matched them. This is useful for auditing your rules: you can quickly see which rule is responsible for the most executions and whether the results look correct.</p>
   <p>Each rule group has its own sortable table. Use the column headers to sort within each group. The sort applies to all groups simultaneously.</p>
   <div class="callout">
-    <p><strong>Candidates vs Death Row:</strong> These pages show identical items. Candidates groups by rule for rule auditing; Death Row groups all items together with the countdown timer for deletion scheduling.</p>
+    <p><strong>Candidates vs Death Row:</strong> These pages show identical items. Candidates groups by rule for rule auditing; Death Row groups all items together with the countdown timer for execution scheduling.</p>
   </div>
 
   {# ── 9. Library ── #}
@@ -348,11 +360,11 @@ volumes:
     <tbody>
       <tr><td>Search</td><td>Free-text title search (case-insensitive)</td></tr>
       <tr><td>Type</td><td>All / Movies / TV Shows</td></tr>
-      <tr><td>Status</td><td>All active (default, hides deleted) / OK / Condemned / Pardoned / Deleted</td></tr>
+      <tr><td>Status</td><td>All active (default, hides executed) / OK / Condemned / Pardoned / Executed</td></tr>
       <tr><td>Watched</td><td>All / Watched (at least 1 play) / Never watched</td></tr>
     </tbody>
   </table>
-  <p>Deleted items are hidden by default. Select <strong>Deleted</strong> from the Status filter to view previously removed content.</p>
+  <p>Executed items are hidden by default. Select <strong>Executed</strong> from the Status filter to view previously removed content.</p>
 
   <h3>Sorting</h3>
   <p>Click any column header (Title, Year, Rating, Size, Added, Last Watched, Plays, Status) to sort by that field. Click again to reverse. Sort is preserved in the URL so you can bookmark views.</p>
@@ -364,12 +376,12 @@ volumes:
     <li><strong>Library info</strong> — added date, runtime, certification, studio/network, series status</li>
     <li><strong>File info</strong> — quality profile, size, file path</li>
     <li><strong>Warden status</strong> — matched rules, death row date, days remaining, pardon form (for condemned items)</li>
-    <li><strong>Open In links</strong> — quick links to IMDb, TMDB/TVDB, Radarr/Sonarr, and Plex (hidden for deleted items)</li>
+    <li><strong>Open In links</strong> — quick links to IMDb, TMDB/TVDB, Radarr/Sonarr, and Plex (hidden for executed items)</li>
   </ul>
 
   {# ── 10. Notifications ── #}
   <h2 id="notifications">10. Notification Agents</h2>
-  <p>Warden supports multiple independent notification agents. Each agent has its own credentials, enabled/disabled state, event subscriptions, and (for reminders) day thresholds. You can have as many agents as you like — for example, a Discord agent for condemned items going to one channel and a Pushover agent for deletions going to your phone.</p>
+  <p>Warden supports multiple independent notification agents. Each agent has its own credentials, enabled/disabled state, event subscriptions, and (for reminders) day thresholds. You can have as many agents as you like — for example, a Discord agent for condemned items going to one channel and a Pushover agent for executions going to your phone.</p>
 
   <h3>Managing agents</h3>
   <p>Go to <strong>Settings → Notification Agents</strong>. From there you can:</p>
@@ -389,7 +401,7 @@ volumes:
     <thead><tr><th>Field</th><th>Description</th></tr></thead>
     <tbody>
       <tr><td>Webhook URL</td><td>The full Discord webhook URL. Create one in Discord: Channel Settings → Integrations → Webhooks → New Webhook.</td></tr>
-      <tr><td>Mention (optional)</td><td>A Discord user or role mention prepended to condemned and deletion messages. Format: <code>&lt;@USER_ID&gt;</code> or <code>&lt;@&amp;ROLE_ID&gt;</code>.</td></tr>
+      <tr><td>Mention (optional)</td><td>A Discord user or role mention prepended to condemned and execution messages. Format: <code>&lt;@USER_ID&gt;</code> or <code>&lt;@&amp;ROLE_ID&gt;</code>.</td></tr>
       <tr><td>Bot Avatar URL (optional)</td><td>URL of an image to use as the webhook's avatar, overriding the default.</td></tr>
     </tbody>
   </table>
@@ -444,8 +456,8 @@ volumes:
     <thead><tr><th>Event</th><th>When it fires</th></tr></thead>
     <tbody>
       <tr><td>🚨 New items condemned</td><td>An item is placed on death row for the first time in this scan (not on re-scans where it was already condemned)</td></tr>
-      <tr><td>⏳ Death row reminders</td><td>A condemned item hits one of the configured day thresholds before its deletion date. Each threshold fires at most once per item per death row sentence.</td></tr>
-      <tr><td>🗑️ Items deleted</td><td>One or more items are deleted (or would be deleted in Dry Run). Includes total space freed.</td></tr>
+      <tr><td>⏳ Death row reminders</td><td>A condemned item hits one of the configured day thresholds before its execution date. Each threshold fires at most once per item per death row sentence.</td></tr>
+      <tr><td>🗑️ Items executed</td><td>One or more items are executed (or would be executed in Dry Run). Includes total space freed.</td></tr>
       <tr><td>✅ Clean scan</td><td>A scan completes with zero newly condemned items</td></tr>
     </tbody>
   </table>
@@ -464,10 +476,11 @@ volumes:
   <table>
     <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td>Dry Run mode</td><td>On</td><td>When enabled, Warden condemns items and sends notifications but never deletes files. The orange DRY RUN badge is shown in the navigation bar. Disable only when you are confident your rules are correct.</td></tr>
+      <tr><td>Dry Run mode</td><td>On</td><td>When enabled, Warden condemns items and sends notifications but never executes them. The orange DRY RUN badge is shown in the navigation bar. Disable only when you are confident your rules are correct.</td></tr>
       <tr><td>Watch threshold %</td><td>80%</td><td>The minimum percentage of a video that must be watched (in a single session) for it to count as "watched" in Tautulli data. Does not apply to Plex fallback data, which uses a fixed ~90% threshold internally.</td></tr>
       <tr><td>TV watched definition</td><td>Any episode</td><td>How Warden determines if a TV series counts as "watched". <strong>Any episode</strong> — watched if any single episode has been played. <strong>50% of episodes</strong> — more than half of all episodes must have been played. <strong>All episodes</strong> — every episode must have been played.</td></tr>
-      <tr><td>Death Row Days</td><td>30</td><td>Number of days an item stays on death row before deletion. The timer starts on the day the item is first condemned. Changing this value affects all existing condemned items immediately.</td></tr>
+      <tr><td>Death Row Days</td><td>30</td><td>Number of days an item stays on death row before execution. The timer starts on the day the item is first condemned. Changing this value affects all existing condemned items immediately.</td></tr>
+      <tr><td>Expedite Execution Days</td><td>—</td><td>When expediting an item, its countdown is collapsed to this many days remaining — regardless of how many days were left. For example, a value of 1 means the item will be executed on the next scan tomorrow. Leave blank to disable the Expedite feature. Must be between 1 and Death Row Days − 1.</td></tr>
       <tr><td>Timezone</td><td>UTC</td><td>Used for formatting timestamps in the UI and for interpreting the scan schedule.</td></tr>
       <tr><td>Scan schedule</td><td>Daily at 08:00</td><td>How often Warden automatically runs a scan. Set the interval, unit (days/weeks), and time of day. Changes take effect immediately without restarting.</td></tr>
       <tr><td>Passkey Domain</td><td>(empty)</td><td>The hostname you use to access Warden, e.g. <code>warden.example.com</code>. Must be the exact domain in your browser's address bar — no <code>https://</code>, no port number. Required before passkeys can be registered or used. See <a href="#account-security">Section 4</a>.</td></tr>
@@ -479,7 +492,7 @@ volumes:
   <table>
     <thead><tr><th>Service</th><th>Notes</th></tr></thead>
     <tbody>
-      <tr><td>Radarr</td><td>Movies only. Warden uses Radarr to list films, fetch metadata, delete movies, and add to the exclusion list.</td></tr>
+      <tr><td>Radarr</td><td>Movies only. Warden uses Radarr to list films, fetch metadata, execute removals, and add to the exclusion list.</td></tr>
       <tr><td>Sonarr</td><td>TV shows only. Same role as Radarr but for series.</td></tr>
       <tr><td>Plex</td><td>Used as a fallback watch history source when Tautulli has no data for an item (e.g. watched before Tautulli was installed). Also used to fetch library add dates and Plex metadata keys for deep links.</td></tr>
       <tr><td>Tautulli</td><td>Primary watch history source. Provides precise per-session watch percentages filtered to your configured threshold. Strongly recommended over Plex-only setups.</td></tr>
@@ -561,8 +574,8 @@ volumes:
   <h3>Added dates look wrong (items appear newer than they are)</h3>
   <p>Warden takes the <em>minimum</em> date across Radarr/Sonarr, Plex library added date, and Plex last-viewed date. This guards against library resets pushing dates forward. If an item still shows an incorrect date, it may mean neither Radarr/Sonarr nor Plex has an accurate history for it.</p>
 
-  <h3>Deleted items still appear in Radarr/Sonarr</h3>
-  <p>Warden deletes the item and adds it to the import exclusion list via the Radarr/Sonarr API. If the item reappears, check whether something else (e.g. an import list or auto-search) is re-adding it. The exclusion list should prevent this, but if the TMDB/TVDB ID differs from what Warden recorded, the exclusion may not match.</p>
+  <h3>Executed items still appear in Radarr/Sonarr</h3>
+  <p>Warden executes the item and adds it to the import exclusion list via the Radarr/Sonarr API. If the item reappears, check whether something else (e.g. an import list or auto-search) is re-adding it. The exclusion list should prevent this, but if the TMDB/TVDB ID differs from what Warden recorded, the exclusion may not match.</p>
 
   <h3>Passkey registration or sign-in fails</h3>
   <ul>
