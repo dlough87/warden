@@ -18,9 +18,13 @@ from ..auth import (
 )
 from ..config import get_config_async
 from ..database import (
-    get_stats, get_recent_scan_runs, get_media_items, get_media_item,
-    pardon_item, unpardon_item, get_rules, get_rule, upsert_rule, delete_rule,
-    get_all_settings, get_setting, set_setting, get_library_page,
+    get_stats, get_recent_scan_runs,
+    get_report_library_stats, get_report_deletion_totals,
+    get_report_age_buckets, get_report_watch_stats, get_report_top_condemned,
+    get_report_timeline_data,
+    get_media_items, get_media_item,
+    pardon_item, unpardon_item, expedite_item, get_rules, get_rule, upsert_rule, delete_rule,
+    get_all_settings, get_setting, set_setting, set_settings_bulk, get_library_page,
     get_notification_agents, get_notification_agent,
     upsert_notification_agent, delete_notification_agent,
     log_audit, get_audit_log,
@@ -439,6 +443,52 @@ async def dashboard(request: Request):
     })
 
 
+@router.get("/reports", response_class=HTMLResponse)
+async def reports_page(request: Request):
+    import asyncio
+    settings = await get_all_settings()
+    tz = settings.get("timezone") or "UTC"
+    (lib_stats, del_totals, age_buckets,
+     watch_stats, top_condemned, timeline_data) = await asyncio.gather(
+        get_report_library_stats(),
+        get_report_deletion_totals(),
+        get_report_age_buckets(),
+        get_report_watch_stats(),
+        get_report_top_condemned(5),
+        get_report_timeline_data(),
+    )
+    bucket_pairs = [
+        ("< 1 yr",    age_buckets.get("under_1yr") or 0),
+        ("1 – 2 yrs", age_buckets.get("yr_1_2") or 0),
+        ("2 – 3 yrs", age_buckets.get("yr_2_3") or 0),
+        ("3 – 5 yrs", age_buckets.get("yr_3_5") or 0),
+        ("5 yrs+",    age_buckets.get("over_5yr") or 0),
+    ]
+    bucket_total = sum(c for _, c in bucket_pairs) or 1
+    age_data = [(lbl, cnt, round(cnt / bucket_total * 100)) for lbl, cnt in bucket_pairs]
+
+    for item in top_condemned:
+        try:
+            rules = json.loads(item["criteria_matched"] or "[]")
+            item["rule_name"] = rules[0] if rules else "—"
+        except Exception:
+            item["rule_name"] = "—"
+        item["size_fmt"] = _format_size(item.get("size_bytes"))
+
+    total_active = (watch_stats.get("watched_count") or 0) + (watch_stats.get("unwatched_count") or 0)
+    watch_pct = round((watch_stats.get("watched_count") or 0) / (total_active or 1) * 100)
+
+    return templates.TemplateResponse("reports.html", {
+        "request": request, "settings": settings,
+        "lib_stats": lib_stats, "del_totals": del_totals,
+        "age_data": age_data,
+        "watch_stats": watch_stats, "watch_pct": watch_pct,
+        "top_condemned": top_condemned,
+        "timeline_json": json.dumps(timeline_data),
+        "format_size": _format_size,
+    })
+
+
 @router.post("/scan/run", response_class=HTMLResponse)
 async def trigger_scan(request: Request):
     if not is_running():
@@ -509,13 +559,69 @@ async def death_row(request: Request, sort: str = "days_left", order: str = "asc
     })
 
 
+@router.post("/death-row/bulk", response_class=HTMLResponse)
+async def bulk_death_row_action(request: Request):
+    form = await request.form()
+    action = form.get("action")
+    ids = form.getlist("ids")
+    settings = await get_all_settings()
+
+    if not ids:
+        return RedirectResponse("/death-row", status_code=303)
+
+    if action == "expedite":
+        expedite_days_str = (settings.get("expedite_days") or "").strip()
+        if not expedite_days_str:
+            return RedirectResponse("/death-row?bulk_error=expedite_not_configured", status_code=303)
+        death_row_days = int(settings.get("death_row_days", 30))
+        exp_days = max(1, min(int(expedite_days_str), death_row_days - 1))
+        offset = death_row_days - exp_days
+        new_drd = (date.today() - timedelta(days=offset)).isoformat()
+        for item_id in ids:
+            await expedite_item(item_id, new_drd)
+        await log_audit("Bulk expedite", f"{len(ids)} items — {exp_days}d remaining", request.client.host)
+
+    elif action == "pardon":
+        reason = form.get("bulk_reason", "").strip() or "Bulk pardon"
+        for item_id in ids:
+            await pardon_item(item_id, reason)
+        await log_audit("Bulk pardon", f"{len(ids)} items — {reason}", request.client.host)
+
+    return RedirectResponse("/death-row", status_code=303)
+
+
+@router.post("/death-row/{item_id}/expedite", response_class=HTMLResponse)
+async def expedite(request: Request, item_id: str):
+    settings = await get_all_settings()
+    expedite_days_str = (settings.get("expedite_days") or "").strip()
+    if not expedite_days_str:
+        return HTMLResponse(
+            '<td colspan="9" style="color:var(--accent)">'
+            'Expedite Days not configured — set it in <a href="/settings">Settings</a> first.'
+            '</td>'
+        )
+    death_row_days = int(settings.get("death_row_days", 30))
+    exp_days = max(1, min(int(expedite_days_str), death_row_days - 1))
+    offset = death_row_days - exp_days
+    new_drd = (date.today() - timedelta(days=offset)).isoformat()
+    await expedite_item(item_id, new_drd)
+    item = await get_media_item(item_id)
+    title = item["title"] if item else item_id
+    await log_audit("Item expedited", f"{title} — {exp_days}d remaining", request.client.host)
+    return HTMLResponse(
+        f'<td colspan="9" style="color:var(--accent)">'
+        f'Execution expedited — {exp_days} day{"s" if exp_days != 1 else ""} remaining'
+        f'</td>'
+    )
+
+
 @router.post("/death-row/{item_id}/pardon", response_class=HTMLResponse)
 async def pardon(request: Request, item_id: str, reason: str = Form(...)):
     item = await get_media_item(item_id)
     await pardon_item(item_id, reason)
     title = item["title"] if item else item_id
     await log_audit("Item pardoned", f"{title} — {reason}" if reason else title, request.client.host)
-    return HTMLResponse('<tr><td colspan="8" class="pardoned">✓ Pardoned</td></tr>')
+    return HTMLResponse('<tr><td colspan="9" class="pardoned">✓ Pardoned</td></tr>')
 
 
 # ── Candidates ────────────────────────────────────────────────────────────────
@@ -738,22 +844,24 @@ async def save_settings(request: Request):
     form = await request.form()
     await log_audit("General settings saved", ip=request.client.host)
 
-    await set_setting("dry_run", "true" if form.get("dry_run") == "true" else "false")
-
-    for key in ("watch_threshold_percent", "tv_watched_definition", "death_row_days", "timezone"):
-        value = form.get(key)
-        if value is not None:
-            await set_setting(key, str(value))
-
-    rp_id = form.get("webauthn_rp_id")
-    if rp_id is not None:
-        await set_setting("webauthn_rp_id", str(rp_id).strip().lower())
-
     interval = form.get("schedule_interval", "1")
     unit = form.get("schedule_unit", "days")
     time_val = form.get("schedule_time", "08:00")
     new_schedule = _friendly_to_cron(int(interval or 1), unit, time_val)
-    await set_setting("schedule", new_schedule)
+
+    pairs: dict[str, str] = {
+        "dry_run": "true" if form.get("dry_run") == "true" else "false",
+        "schedule": new_schedule,
+    }
+    for key in ("watch_threshold_percent", "tv_watched_definition", "death_row_days", "expedite_days", "timezone"):
+        value = form.get(key)
+        if value is not None:
+            pairs[key] = str(value)
+    rp_id = form.get("webauthn_rp_id")
+    if rp_id is not None:
+        pairs["webauthn_rp_id"] = str(rp_id).strip().lower()
+
+    await set_settings_bulk(pairs)
 
     from ..main import reschedule
     await reschedule(new_schedule)
@@ -775,15 +883,17 @@ async def save_connections(request: Request):
     form = await request.form()
     await log_audit("Connection settings saved", ip=request.client.host)
 
-    for key in (
-        "radarr_url", "radarr_api_key", "radarr_public_url",
-        "sonarr_url", "sonarr_api_key", "sonarr_public_url",
-        "plex_url", "plex_token", "plex_public_url",
-        "tautulli_url", "tautulli_api_key", "tautulli_public_url",
-    ):
-        value = form.get(key)
-        if value is not None:
-            await set_setting(key, str(value))
+    pairs = {
+        key: str(form.get(key, ""))
+        for key in (
+            "radarr_url", "radarr_api_key", "radarr_public_url",
+            "sonarr_url", "sonarr_api_key", "sonarr_public_url",
+            "plex_url", "plex_token", "plex_public_url",
+            "tautulli_url", "tautulli_api_key", "tautulli_public_url",
+        )
+        if form.get(key) is not None
+    }
+    await set_settings_bulk(pairs)
 
     return await _settings_response(request, saved=True)
 
@@ -901,7 +1011,7 @@ AGENT_TYPES = {
 ALL_EVENTS = [
     ("condemned",  "🚨", "New items condemned"),
     ("reminder",   "⏳", "Death row reminders"),
-    ("deleted",    "🗑️",  "Items deleted"),
+    ("deleted",    "🗑️",  "Items executed"),
     ("clean_scan", "✅", "Clean scan"),
     ("scan_error", "⚠️",  "Scan failed"),
 ]

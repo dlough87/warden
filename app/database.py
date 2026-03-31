@@ -10,6 +10,7 @@ DEFAULT_SETTINGS = {
     "watch_threshold_percent": "80",
     "tv_watched_definition": "any_episode",
     "death_row_days": "30",
+    "expedite_days": "",
     "schedule": "0 8 * * *",
     "timezone": "UTC",
     "radarr_url": "",
@@ -326,6 +327,16 @@ async def set_setting(key: str, value: str):
         await db.commit()
 
 
+async def set_settings_bulk(pairs: dict[str, str]):
+    """Write multiple settings in a single DB connection and transaction."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.executemany(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            list(pairs.items()),
+        )
+        await db.commit()
+
+
 async def get_rules(enabled_only: bool = False) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -522,6 +533,15 @@ async def unpardon_item(item_id: str):
         await db.commit()
 
 
+async def expedite_item(item_id: str, new_death_row_date: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE media_items SET death_row_date=?, updated_at=? WHERE id=?",
+            (new_death_row_date, now_iso(), item_id),
+        )
+        await db.commit()
+
+
 async def start_scan_run(dry_run: bool) -> int:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
@@ -614,6 +634,117 @@ async def get_recent_scan_runs(limit: int = 5) -> list[dict]:
             "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?", (limit,)
         )).fetchall()
         return [dict(r) for r in rows]
+
+
+async def get_report_library_stats() -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute("""
+            SELECT
+              COUNT(*)                                                                 AS total_items,
+              SUM(CASE WHEN media_type='movie' THEN 1 ELSE 0 END)                     AS movie_count,
+              SUM(CASE WHEN media_type='show'  THEN 1 ELSE 0 END)                     AS show_count,
+              COALESCE(SUM(size_bytes), 0)                                             AS total_bytes,
+              SUM(CASE WHEN (total_plays IS NULL OR total_plays=0) THEN 1 ELSE 0 END) AS never_watched,
+              SUM(CASE WHEN status='condemned' THEN 1 ELSE 0 END)                     AS condemned_count,
+              COALESCE(SUM(CASE WHEN status='condemned' THEN size_bytes ELSE 0 END), 0) AS condemned_bytes,
+              SUM(CASE WHEN status='pardoned' THEN 1 ELSE 0 END)                      AS pardoned_count
+            FROM media_items WHERE status != 'deleted'
+        """)).fetchone()
+        return dict(row) if row else {}
+
+
+async def get_report_deletion_totals() -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute("""
+            SELECT
+              COALESCE(SUM(deleted_count), 0)     AS total_deleted,
+              COALESCE(SUM(space_freed_bytes), 0) AS total_freed_bytes
+            FROM scan_runs
+        """)).fetchone()
+        return dict(row) if row else {}
+
+
+async def get_report_scan_history(limit: int = 10) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (await db.execute(
+            "SELECT id, started_at, deleted_count, space_freed_bytes "
+            "FROM scan_runs WHERE dry_run = 0 ORDER BY id DESC LIMIT ?", (limit,)
+        )).fetchall()
+        return [dict(r) for r in rows]
+
+
+async def get_report_age_buckets() -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute("""
+            SELECT
+              SUM(CASE WHEN julianday('now') - julianday(added_date) < 365           THEN 1 ELSE 0 END) AS under_1yr,
+              SUM(CASE WHEN julianday('now') - julianday(added_date) BETWEEN 365 AND 729  THEN 1 ELSE 0 END) AS yr_1_2,
+              SUM(CASE WHEN julianday('now') - julianday(added_date) BETWEEN 730 AND 1094 THEN 1 ELSE 0 END) AS yr_2_3,
+              SUM(CASE WHEN julianday('now') - julianday(added_date) BETWEEN 1095 AND 1824 THEN 1 ELSE 0 END) AS yr_3_5,
+              SUM(CASE WHEN julianday('now') - julianday(added_date) >= 1825         THEN 1 ELSE 0 END) AS over_5yr
+            FROM media_items WHERE status != 'deleted' AND added_date IS NOT NULL
+        """)).fetchone()
+        return dict(row) if row else {}
+
+
+async def get_report_watch_stats() -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute("""
+            SELECT
+              SUM(CASE WHEN total_plays > 0 THEN 1 ELSE 0 END)                            AS watched_count,
+              SUM(CASE WHEN total_plays = 0 OR total_plays IS NULL THEN 1 ELSE 0 END)      AS unwatched_count,
+              ROUND(AVG(CASE WHEN total_plays > 0 THEN max_watch_percent END), 1)          AS avg_watch_pct,
+              SUM(CASE WHEN last_watched_date >= date('now', '-90 days') THEN 1 ELSE 0 END) AS watched_last_90d
+            FROM media_items WHERE status != 'deleted'
+        """)).fetchone()
+        return dict(row) if row else {}
+
+
+async def get_report_top_condemned(limit: int = 5) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (await db.execute(
+            "SELECT id, title, media_type, size_bytes, criteria_matched, imdb_rating "
+            "FROM media_items WHERE status = 'condemned' "
+            "ORDER BY size_bytes DESC LIMIT ?", (limit,)
+        )).fetchall()
+        return [dict(r) for r in rows]
+
+
+async def get_report_timeline_data() -> dict:
+    """Returns condemned/deleted/pardoned counts bucketed by week, month, and year."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        async def _fetch(sql: str) -> dict:
+            rows = await (await db.execute(sql)).fetchall()
+            return {r["period"]: r["count"] for r in rows}
+
+        # Yearly (all time)
+        y_del = await _fetch("SELECT strftime('%Y', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='deleted' AND updated_at IS NOT NULL GROUP BY period ORDER BY period")
+        y_con = await _fetch("SELECT strftime('%Y', death_row_date) AS period, COUNT(*) AS count FROM media_items WHERE death_row_date IS NOT NULL AND death_row_date != '' GROUP BY period ORDER BY period")
+        y_par = await _fetch("SELECT strftime('%Y', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='pardoned' AND updated_at IS NOT NULL GROUP BY period ORDER BY period")
+
+        # Monthly (last 24 months)
+        m_del = await _fetch("SELECT strftime('%Y-%m', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='deleted' AND updated_at >= date('now','-24 months') GROUP BY period ORDER BY period")
+        m_con = await _fetch("SELECT strftime('%Y-%m', death_row_date) AS period, COUNT(*) AS count FROM media_items WHERE death_row_date IS NOT NULL AND death_row_date != '' AND death_row_date >= date('now','-24 months') GROUP BY period ORDER BY period")
+        m_par = await _fetch("SELECT strftime('%Y-%m', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='pardoned' AND updated_at >= date('now','-24 months') GROUP BY period ORDER BY period")
+
+        # Weekly (last 16 weeks = 112 days; SQLite has no 'weeks' modifier)
+        w_del = await _fetch("SELECT strftime('%Y-W%W', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='deleted' AND updated_at >= date('now','-112 days') GROUP BY period ORDER BY period")
+        w_con = await _fetch("SELECT strftime('%Y-W%W', death_row_date) AS period, COUNT(*) AS count FROM media_items WHERE death_row_date IS NOT NULL AND death_row_date != '' AND death_row_date >= date('now','-112 days') GROUP BY period ORDER BY period")
+        w_par = await _fetch("SELECT strftime('%Y-W%W', updated_at) AS period, COUNT(*) AS count FROM media_items WHERE status='pardoned' AND updated_at >= date('now','-112 days') GROUP BY period ORDER BY period")
+
+        return {
+            "yearly":  {"condemned": y_con, "deleted": y_del, "pardoned": y_par},
+            "monthly": {"condemned": m_con, "deleted": m_del, "pardoned": m_par},
+            "weekly":  {"condemned": w_con, "deleted": w_del, "pardoned": w_par},
+        }
 
 
 async def log_audit(action: str, detail: str = "", ip: str = "") -> None:

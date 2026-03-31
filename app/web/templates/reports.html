@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %} — Reports{% endblock %}
+{% block head %}
+<style>
+  .bar-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .bar-label { width:90px; font-size:0.8rem; color:var(--muted); flex-shrink:0; }
+  .bar-label-wide { width:130px; font-size:0.8rem; color:var(--muted); flex-shrink:0; }
+  .bar-track { flex:1; height:10px; background:var(--border); border-radius:5px; overflow:hidden; }
+  .bar-fill  { height:100%; border-radius:5px; transition:width 0.4s ease; }
+  .bar-count { width:50px; text-align:right; font-size:0.8rem; color:var(--muted); flex-shrink:0; }
+  .report-section { margin-bottom:32px; }
+  .report-section h2 { font-size:1rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:14px; }
+  .split-stat { display:flex; gap:24px; flex-wrap:wrap; }
+  .split-stat-item { display:flex; flex-direction:column; gap:2px; }
+  .split-stat-value { font-size:1.4rem; font-weight:700; color:var(--text); }
+  .split-stat-label { font-size:0.75rem; color:var(--muted); }
+  .period-btn { padding:4px 12px; border-radius:6px; font-size:0.8rem; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all 0.15s; }
+  .period-btn:hover { color:var(--text); border-color:var(--text); }
+  .period-btn.active { background:var(--blue); border-color:var(--blue); color:#fff; }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Reports</h1>
+
+{# ── A: Library Health ─────────────────────────────────────────────────────── #}
+<div class="report-section">
+  <h2>Library Health</h2>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--gap)">
+    <div class="card stat">
+      <div class="stat-value">{{ lib_stats.get("total_items", 0) }}</div>
+      <div class="stat-label">Total Items</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">
+        {{ lib_stats.get("movie_count", 0) }} movies · {{ lib_stats.get("show_count", 0) }} shows
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value">{{ format_size(lib_stats.get("total_bytes", 0)) }}</div>
+      <div class="stat-label">Library Size</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value {% if (lib_stats.get('never_watched') or 0) > 0 %}warn{% endif %}">
+        {{ lib_stats.get("never_watched", 0) }}
+      </div>
+      <div class="stat-label">Never Watched</div>
+      {% set total = lib_stats.get("total_items") or 1 %}
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">
+        {{ ((lib_stats.get("never_watched", 0) / total) * 100) | round(1) }}% of library
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value {% if (lib_stats.get('condemned_count') or 0) > 0 %}danger{% endif %}">
+        {{ lib_stats.get("condemned_count", 0) }}
+      </div>
+      <div class="stat-label">Condemned</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">
+        {{ format_size(lib_stats.get("condemned_bytes", 0)) }} at risk
+      </div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value">{{ format_size(del_totals.get("total_freed_bytes", 0)) }}</div>
+      <div class="stat-label">Space Reclaimed</div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">
+        {{ del_totals.get("total_deleted", 0) }} items executed
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── C: Activity Over Time ─────────────────────────────────────────────────── #}
+<div class="report-section">
+  <h2>Activity Over Time</h2>
+  <div class="card">
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:6px">
+        <button class="period-btn" data-period="weekly"  onclick="setPeriod('weekly')">Weekly</button>
+        <button class="period-btn active" data-period="monthly" onclick="setPeriod('monthly')">Monthly</button>
+        <button class="period-btn" data-period="yearly"  onclick="setPeriod('yearly')">Yearly</button>
+      </div>
+    </div>
+    <div style="position:relative;height:260px">
+      <canvas id="timeline-chart"></canvas>
+    </div>
+    <div id="timeline-empty" style="display:none;padding:40px 0;text-align:center">
+      <p class="empty">No activity data yet.</p>
+    </div>
+  </div>
+</div>
+
+{# ── D: Currently Condemned ────────────────────────────────────────────────── #}
+<div class="report-section">
+  <h2>Currently Condemned</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="split-stat" style="margin-bottom:20px">
+        <div class="split-stat-item">
+          <span class="split-stat-value {% if (lib_stats.get('condemned_count') or 0) > 0 %}danger{% endif %}">
+            {{ lib_stats.get("condemned_count", 0) }}
+          </span>
+          <span class="split-stat-label">Total condemned</span>
+        </div>
+        <div class="split-stat-item">
+          <span class="split-stat-value">{{ lib_stats.get("pardoned_count", 0) }}</span>
+          <span class="split-stat-label">Pardoned</span>
+        </div>
+      </div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-bottom:6px">Space at risk</div>
+      <div style="font-size:1.2rem;font-weight:600">{{ format_size(lib_stats.get("condemned_bytes", 0)) }}</div>
+    </div>
+    <div class="card" style="padding:0">
+      {% if top_condemned %}
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Rule</th>
+            <th>Size</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in top_condemned %}
+          <tr>
+            <td><a href="/library/{{ item.id | urlencode }}">{{ item.title }}</a></td>
+            <td>
+              {% if item.media_type == "movie" %}
+                <span class="badge badge-blue">Movie</span>
+              {% else %}
+                <span class="badge badge-green">Show</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--muted);font-size:0.85rem">{{ item.rule_name }}</td>
+            <td>{{ item.size_fmt }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div style="padding:24px"><p class="empty">Nothing currently condemned.</p></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── E: Library Age ────────────────────────────────────────────────────────── #}
+<div class="report-section">
+  <h2>Library Age</h2>
+  <div class="card">
+    {% if age_data %}
+      {% for label, count, pct in age_data %}
+      <div class="bar-row">
+        <span class="bar-label-wide">{{ label }}</span>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:{{ pct }}%;background:var(--blue)"></div>
+        </div>
+        <span class="bar-count">{{ count }}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty">No data yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+{# ── F: Watch Engagement ───────────────────────────────────────────────────── #}
+<div class="report-section">
+  <h2>Watch Engagement</h2>
+  <div class="grid grid-4">
+    <div class="card stat">
+      <div class="stat-value {% if watch_pct >= 80 %}safe{% elif watch_pct >= 50 %}warn{% else %}danger{% endif %}">
+        {{ watch_pct }}%
+      </div>
+      <div class="stat-label">Watched at least once</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value {% if (watch_stats.get('unwatched_count') or 0) > 0 %}warn{% endif %}">
+        {{ watch_stats.get("unwatched_count", 0) }}
+      </div>
+      <div class="stat-label">Never watched</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value">{{ watch_stats.get("avg_watch_pct") or "—" }}{% if watch_stats.get("avg_watch_pct") %}%{% endif %}</div>
+      <div class="stat-label">Avg completion</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-value safe">{{ watch_stats.get("watched_last_90d", 0) }}</div>
+      <div class="stat-label">Watched last 90 days</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const timeline = {{ timeline_json | safe }};
+  let chart = null;
+  let currentPeriod = 'monthly';
+
+  function buildChartData(period) {
+    const data = timeline[period];
+    const allPeriods = [...new Set([
+      ...Object.keys(data.condemned),
+      ...Object.keys(data.deleted),
+      ...Object.keys(data.pardoned),
+    ])].sort();
+    return {
+      labels: allPeriods,
+      datasets: [
+        {
+          label: 'Condemned',
+          data: allPeriods.map(p => data.condemned[p] || 0),
+          borderColor: '#e74c3c',
+          backgroundColor: 'rgba(231,76,60,0.12)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+        },
+        {
+          label: 'Executed',
+          data: allPeriods.map(p => data.deleted[p] || 0),
+          borderColor: '#f0c040',
+          backgroundColor: 'rgba(240,192,64,0.10)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+        },
+        {
+          label: 'Pardoned',
+          data: allPeriods.map(p => data.pardoned[p] || 0),
+          borderColor: '#4caf7d',
+          backgroundColor: 'rgba(76,175,125,0.10)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+        },
+      ],
+    };
+  }
+
+  function hasData(period) {
+    const data = timeline[period];
+    return Object.keys(data.condemned).length > 0
+        || Object.keys(data.deleted).length > 0
+        || Object.keys(data.pardoned).length > 0;
+  }
+
+  function renderChart(period) {
+    const canvas = document.getElementById('timeline-chart');
+    const empty  = document.getElementById('timeline-empty');
+
+    if (!hasData(period)) {
+      canvas.style.display = 'none';
+      empty.style.display  = 'block';
+    } else {
+      canvas.style.display = '';
+      empty.style.display  = 'none';
+      const chartData = buildChartData(period);
+      if (chart) {
+        chart.data = chartData;
+        chart.update('none');
+      } else {
+        chart = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: chartData,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: { color: '#a0a0b0', font: { size: 12 }, boxWidth: 12, padding: 16 },
+              },
+              tooltip: {
+                backgroundColor: 'rgba(20,20,30,0.92)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                titleColor: '#e0e0f0',
+                bodyColor: '#a0a0b0',
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: '#6b6b80', font: { size: 11 }, maxRotation: 45 },
+                grid:  { color: 'rgba(255,255,255,0.04)' },
+              },
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#6b6b80', font: { size: 11 }, stepSize: 1, precision: 0 },
+                grid:  { color: 'rgba(255,255,255,0.06)' },
+              },
+            },
+          },
+        });
+      }
+    }
+
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.period === period);
+    });
+    currentPeriod = period;
+  }
+
+  window.setPeriod = function(p) { renderChart(p); };
+  renderChart('monthly');
+})();
+</script>
+{% endblock %}

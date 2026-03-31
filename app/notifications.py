@@ -88,7 +88,7 @@ def _build_text_body(event: str, **kwargs) -> tuple[str, str]:
         title = f"🚨 {len(items)} New Item(s) on Death Row{dry_tag}"
         item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
         suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
-        action = "NOT deleted" if dry else f"deleted in {death_row_days} days"
+        action = "NOT executed" if dry else f"executed in {death_row_days} days"
         body = f"{len(items)} item(s) will be {action} unless pardoned.\n\n{item_lines}{suffix}"
 
     elif event == "reminder":
@@ -97,11 +97,11 @@ def _build_text_body(event: str, **kwargs) -> tuple[str, str]:
         title = f"⏳ {len(items)} Item(s) Condemned {label.title()}{dry_tag}"
         item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
         suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
-        body = f"{len(items)} item(s) will be {'deleted ' if not dry else 'removed (dry run) '}{label}.\n\n{item_lines}{suffix}"
+        body = f"{len(items)} item(s) will be {'executed ' if not dry else 'executed (dry run — no files touched) '}{label}.\n\n{item_lines}{suffix}"
 
     elif event == "deleted":
         space_freed = kwargs.get("space_freed", 0)
-        verb = "Would delete" if dry else "Deleted"
+        verb = "Would Execute" if dry else "Executed"
         title = f"🗑️ Warden {verb} {len(items)} Item(s){dry_tag}"
         item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
         suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
@@ -161,7 +161,7 @@ async def _send_discord(agent: dict, event: str, **kwargs):
                         "title": f"🚨 New Items on Death Row{dry_tag}{part}",
                         "description": (
                             f"**Rule: {rule_name}** — {len(rule_items)} item(s)\n"
-                            f"Will be {'**NOT** ' if dry else ''}deleted in {death_row_days} days unless pardoned.\n\n{lines}"
+                            f"Will be {'**NOT** ' if dry else ''}executed in {death_row_days} days unless pardoned.\n\n{lines}"
                         ),
                         "color": _COLOR_RED,
                         "footer": {"text": "Warden • Pardon items via the UI to save them"},
@@ -190,7 +190,7 @@ async def _send_discord(agent: dict, event: str, **kwargs):
                         "title": f"{title}{part}",
                         "description": (
                             f"**Rule: {rule_name}** — {len(rule_items)} item(s)\n"
-                            f"{'Would be deleted' if dry else 'Will be deleted'} in {body_days}.\n\n{lines}"
+                            f"{'Would be executed' if dry else 'Will be executed'} in {body_days}.\n\n{lines}"
                         ),
                         "color": _COLOR_ORANGE,
                         "footer": {"text": "Warden • Pardon items via the UI to save them"},
@@ -199,7 +199,7 @@ async def _send_discord(agent: dict, event: str, **kwargs):
 
     elif event == "deleted":
         space_freed = kwargs.get("space_freed", 0)
-        verb = "Would Delete" if dry else "Deleted"
+        verb = "Would Execute" if dry else "Executed"
         for i, chunk in enumerate(_chunks(items, CHUNK_SIZE)):
             lines = "\n".join(_item_line(it) for it in chunk)
             part = f" (part {i+1})" if len(items) > CHUNK_SIZE else ""

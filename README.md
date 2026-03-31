@@ -3,15 +3,15 @@
 > [!WARNING]
 > **Use at your own risk.** Warden permanently deletes media files from disk. The author accepts no responsibility for any data loss, accidental deletion, or damage caused by using this software. Always start with **dry run mode enabled** and review the Death Row list carefully before allowing real deletions.
 
-Warden automatically removes stale movies and TV shows from your Plex library. It works by connecting to Radarr and Sonarr (to manage your library) and Plex + Tautulli (to track what's been watched), then applies your own rules to decide what gets condemned and eventually deleted.
+Warden automatically removes stale movies and TV shows from your Plex library. It works by connecting to Radarr and Sonarr (to manage your library) and Plex + Tautulli (to track what's been watched), then applies your own rules to decide what gets condemned and eventually executed.
 
 ## Features
 
 - **Rule-based culling** — define criteria by media type, watch status, rating, age, and more. Multiple rules, any match condemns an item.
-- **Death row** — condemned items sit in a configurable holding period before deletion, giving you time to pardon anything you want to keep.
-- **Dry run mode** — see exactly what would be deleted before you let it actually delete anything.
+- **Death row** — condemned items sit in a configurable holding period before execution, giving you time to pardon anything you want to keep.
+- **Dry run mode** — see exactly what would be executed before you let it actually happen.
 - **Scheduled scans** — runs automatically on a cron schedule you control.
-- **Notifications** — Discord webhooks for condemned items, deletions, and clean scans.
+- **Notifications** — Discord webhooks for condemned items, executions, and clean scans.
 - **Full web UI** — dashboard, library browser, rules editor, death row management, settings, audit log.
 - **Account security** — username/password login, TOTP (2FA), passkeys (Face ID / Touch ID / Windows Hello).
 - **Backup & restore** — export and import your configuration as JSON.

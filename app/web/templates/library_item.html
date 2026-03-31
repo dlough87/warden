@@ -21,11 +21,11 @@
         {% elif item.status == "pardoned" %}
           <span class="badge badge-green">Pardoned</span>
         {% elif item.status == "deleted" %}
-          <span class="badge" style="background:rgba(255,255,255,0.1);color:var(--muted)">Deleted</span>
+          <span class="badge" style="background:rgba(255,255,255,0.1);color:var(--muted)">Executed</span>
         {% endif %}
         {% if item.status == "condemned" and days_left is not none %}
           <span style="color:var(--accent);font-size:0.85rem">
-            {% if days_left == 0 %}Scheduled for deletion today{% else %}{{ days_left }} day{{ 's' if days_left != 1 }} left{% endif %}
+            {% if days_left == 0 %}Scheduled for execution today{% else %}{{ days_left }} day{{ 's' if days_left != 1 }} left{% endif %}
           </span>
         {% endif %}
       </div>
@@ -154,15 +154,15 @@
 {# ── Warden Status ─────────────────────────────────────────────────────────── #}
 {% if item.status == "deleted" %}
 <div class="card" style="margin-bottom:20px;border-color:rgba(255,255,255,0.12)">
-  <h2 style="color:var(--muted)">Deleted</h2>
+  <h2 style="color:var(--muted)">Executed</h2>
   <p style="color:var(--muted);margin-bottom:0">
-    This item has been removed from your library by Warden.
-    The files have been deleted and it has been added to the import exclusion list in
+    This item has been executed by Warden. The files have been removed and it has been
+    added to the import exclusion list in
     {{ "Radarr" if item.media_type == "movie" else "Sonarr" }}.
   </p>
   {% if item.updated_at %}
   <p style="color:var(--muted);font-size:0.85rem;margin-top:8px;margin-bottom:0">
-    Deleted {{ format_age(item.updated_at) }}
+    Executed {{ format_age(item.updated_at) }}
   </p>
   {% endif %}
   {% if item.criteria_matched %}
@@ -209,7 +209,7 @@
     {% if settings.get("dry_run") == "true" %}
     <div>
       <div style="font-size:0.75rem;color:var(--orange);text-transform:uppercase;letter-spacing:1px">Mode</div>
-      <div style="margin-top:4px;color:var(--orange)">Dry Run — will not delete</div>
+      <div style="margin-top:4px;color:var(--orange)">Dry Run — will not execute</div>
     </div>
     {% endif %}
   </div>
