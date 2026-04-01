@@ -578,7 +578,7 @@ async def bulk_death_row_action(request: Request):
         offset = death_row_days - exp_days
         new_drd = (date.today() - timedelta(days=offset)).isoformat()
         for item_id in ids:
-            await expedite_item(item_id, new_drd)
+            await expedite_item(item_id, new_drd, exp_days)
         await log_audit("Bulk expedite", f"{len(ids)} items — {exp_days}d remaining", request.client.host)
 
     elif action == "pardon":
@@ -604,7 +604,7 @@ async def expedite(request: Request, item_id: str):
     exp_days = max(1, min(int(expedite_days_str), death_row_days - 1))
     offset = death_row_days - exp_days
     new_drd = (date.today() - timedelta(days=offset)).isoformat()
-    await expedite_item(item_id, new_drd)
+    await expedite_item(item_id, new_drd, exp_days)
     item = await get_media_item(item_id)
     title = item["title"] if item else item_id
     await log_audit("Item expedited", f"{title} — {exp_days}d remaining", request.client.host)
