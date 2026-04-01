@@ -533,11 +533,34 @@ async def unpardon_item(item_id: str):
         await db.commit()
 
 
-async def expedite_item(item_id: str, new_death_row_date: str) -> None:
+async def expedite_item(item_id: str, new_death_row_date: str, days_remaining: int) -> None:
+    """Set a new death_row_date and pre-mark any reminder thresholds above days_remaining
+    as already sent, so they don't fire spuriously on the next scan."""
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        row = await (await db.execute(
+            "SELECT reminder_sent_days FROM media_items WHERE id=?", (item_id,)
+        )).fetchone()
+        existing = json.loads((row["reminder_sent_days"] if row else None) or "[]")
+
+        # Fetch all configured reminder thresholds from enabled agents
+        agents = await (await db.execute(
+            "SELECT config FROM notification_agents WHERE enabled=1"
+        )).fetchall()
+        all_thresholds: set[int] = set()
+        for agent in agents:
+            cfg = json.loads(agent["config"] or "{}")
+            for part in (cfg.get("reminder_days") or "").split(","):
+                if part.strip().isdigit():
+                    all_thresholds.add(int(part.strip()))
+
+        # Mark thresholds strictly above days_remaining as already sent
+        suppressed = [t for t in all_thresholds if t > days_remaining]
+        merged = list(set(existing) | set(suppressed))
+
         await db.execute(
-            "UPDATE media_items SET death_row_date=?, updated_at=? WHERE id=?",
-            (new_death_row_date, now_iso(), item_id),
+            "UPDATE media_items SET death_row_date=?, reminder_sent_days=?, updated_at=? WHERE id=?",
+            (new_death_row_date, json.dumps(merged), now_iso(), item_id),
         )
         await db.commit()
 
