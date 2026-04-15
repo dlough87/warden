@@ -321,6 +321,11 @@ async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, s
                     await radarr.add_exclusion(detail["tmdb_id"], item["title"], item.get("year"))
                 except Exception as e:
                     log.warning(f"  Exclusion failed for {item['title']}: {e}")
+            if detail.get("collection_tmdb_id"):
+                try:
+                    await radarr.unmonitor_collection(detail["collection_tmdb_id"])
+                except Exception as e:
+                    log.warning(f"  Collection unmonitor failed for {item['title']}: {e}")
         else:
             detail = await sonarr.get_series_detail(item["arr_id"])
             await sonarr.delete_series(item["arr_id"])

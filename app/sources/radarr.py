@@ -70,6 +70,8 @@ class RadarrClient:
         return {
             "imdb_id": m.get("imdbId"),
             "tmdb_id": m.get("tmdbId"),
+            "collection_tmdb_id": (m.get("collection") or {}).get("tmdbId"),
+            "collection_title":   (m.get("collection") or {}).get("title"),
             "overview": m.get("overview"),
             "runtime": m.get("runtime"),
             "certification": m.get("certification"),
@@ -89,6 +91,33 @@ class RadarrClient:
             )
             r.raise_for_status()
         log.info(f"Radarr: added exclusion for {title} (tmdb:{tmdb_id})")
+
+    async def unmonitor_collection(self, collection_tmdb_id: int):
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(f"{self.base}/api/v3/collection", headers=self.headers)
+            r.raise_for_status()
+            collections = r.json()
+
+        collection = next(
+            (c for c in collections if c.get("tmdbId") == collection_tmdb_id),
+            None,
+        )
+        if collection is None:
+            log.debug(f"Radarr: collection tmdb:{collection_tmdb_id} not found — skipping unmonitor")
+            return
+        if not collection.get("monitored"):
+            log.debug(f"Radarr: collection '{collection['title']}' already unmonitored — skipping")
+            return
+
+        payload = {**collection, "monitored": False}
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.put(
+                f"{self.base}/api/v3/collection/{collection['id']}",
+                headers=self.headers,
+                json=payload,
+            )
+            r.raise_for_status()
+        log.info(f"Radarr: unmonitored collection '{collection['title']}' (tmdb:{collection_tmdb_id})")
 
     async def delete_movie(self, arr_id: int, delete_files: bool = True):
         async with httpx.AsyncClient(timeout=30) as client:
