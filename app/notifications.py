@@ -2,10 +2,13 @@
 Agent-based notification dispatch for Warden.
 
 Events:
-  condemned  — new items sentenced to death row
-  reminder   — N days left on death row
-  deleted    — items deleted (or would be, in dry run)
-  clean_scan — scan completed, nothing new to report
+  condemned     — new items sentenced to death row
+  reminder      — N days left on death row
+  deleted       — items actually deleted (or would be, in dry run)
+  delete_failed — items that were due for deletion but the source API failed
+  delete_stuck  — items that have failed deletion 3+ times and need manual attention
+  clean_scan    — scan completed, nothing new to report
+  scan_error    — unhandled error aborted the scan
 
 Each notification_agents row: {id, name, agent_type, enabled, config (JSON), events (JSON array)}
 Agent types: discord | pushover | ntfy | apprise | webhook
@@ -19,7 +22,7 @@ from datetime import date
 log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 20  # Discord embeds per message (other agents truncate at CHUNK_SIZE * 1 batch)
-EVENTS = ["condemned", "reminder", "deleted", "clean_scan", "scan_error"]
+EVENTS = ["condemned", "reminder", "deleted", "delete_failed", "delete_stuck", "clean_scan", "scan_error"]
 
 # Discord embed colours
 _COLOR_RED    = 0xE74C3C
@@ -106,6 +109,18 @@ def _build_text_body(event: str, **kwargs) -> tuple[str, str]:
         item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
         suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
         body = f"{'Would free' if dry else 'Freed'} {_format_size(space_freed)} of disk space.\n\n{item_lines}{suffix}"
+
+    elif event == "delete_failed":
+        title = f"⚠️ Warden: {len(items)} Deletion(s) Failed"
+        item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
+        suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
+        body = f"{len(items)} item(s) were due for deletion but the source API rejected the request. Warden will retry on the next scan.\n\n{item_lines}{suffix}"
+
+    elif event == "delete_stuck":
+        title = f"🛑 Warden: {len(items)} Item(s) Stuck on Death Row"
+        item_lines = "\n".join(_item_line_plain(i) for i in items[:CHUNK_SIZE])
+        suffix = f"\n…and {len(items) - CHUNK_SIZE} more" if len(items) > CHUNK_SIZE else ""
+        body = f"{len(items)} item(s) have failed deletion 3+ times — manual intervention likely needed.\n\n{item_lines}{suffix}"
 
     elif event == "scan_error":
         title = "⚠️ Warden Scan Failed"
@@ -213,6 +228,40 @@ async def _send_discord(agent: dict, event: str, **kwargs):
                 }],
             })
 
+    elif event == "delete_failed":
+        for i, chunk in enumerate(_chunks(items, CHUNK_SIZE)):
+            lines = "\n".join(_item_line(it) for it in chunk)
+            part = f" (part {i+1})" if len(items) > CHUNK_SIZE else ""
+            await post({
+                "content": mention_prefix or None,
+                "embeds": [{
+                    "title": f"⚠️ Warden: {len(items)} Deletion(s) Failed{part}",
+                    "description": (
+                        f"These items were due for deletion but the source API rejected the request. "
+                        f"Warden will retry on the next scan.\n\n{lines}"
+                    ),
+                    "color": _COLOR_ORANGE,
+                    "footer": {"text": "Warden • Check the server log for the API error"},
+                }],
+            })
+
+    elif event == "delete_stuck":
+        for i, chunk in enumerate(_chunks(items, CHUNK_SIZE)):
+            lines = "\n".join(_item_line(it) for it in chunk)
+            part = f" (part {i+1})" if len(items) > CHUNK_SIZE else ""
+            await post({
+                "content": mention_prefix or None,
+                "embeds": [{
+                    "title": f"🛑 Warden: Items Stuck on Death Row{part}",
+                    "description": (
+                        f"**{len(items)} item(s)** have now failed deletion 3 or more times. "
+                        f"Manual intervention is likely needed — check Radarr/Sonarr logs or pardon the item.\n\n{lines}"
+                    ),
+                    "color": _COLOR_RED,
+                    "footer": {"text": "Warden • Manual attention required"},
+                }],
+            })
+
     elif event == "scan_error":
         await post({
             "embeds": [{
@@ -303,6 +352,8 @@ _NTFY_PRIORITY = {
     "condemned": "high",
     "reminder": "default",
     "deleted": "high",
+    "delete_failed": "high",
+    "delete_stuck": "urgent",
     "clean_scan": "low",
 }
 
@@ -352,6 +403,8 @@ _APPRISE_TYPE = {
     "condemned": "warning",
     "reminder": "warning",
     "deleted": "failure",
+    "delete_failed": "warning",
+    "delete_stuck": "failure",
     "clean_scan": "success",
 }
 

@@ -88,11 +88,16 @@ class SonarrClient:
         log.info(f"Sonarr: added exclusion for {title} (tvdb:{tvdb_id})")
 
     async def delete_series(self, arr_id: int, delete_files: bool = True):
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             r = await client.delete(
                 f"{self.base}/api/v3/series/{arr_id}",
                 headers=self.headers,
                 params={"deleteFiles": str(delete_files).lower()},
             )
-            r.raise_for_status()
+            if r.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    f"Sonarr delete {arr_id} → {r.status_code}: {r.text[:400]}",
+                    request=r.request,
+                    response=r,
+                )
         log.info(f"Sonarr: deleted series {arr_id}")
