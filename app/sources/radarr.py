@@ -120,11 +120,16 @@ class RadarrClient:
         log.info(f"Radarr: unmonitored collection '{collection['title']}' (tmdb:{collection_tmdb_id})")
 
     async def delete_movie(self, arr_id: int, delete_files: bool = True):
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=120) as client:
             r = await client.delete(
                 f"{self.base}/api/v3/movie/{arr_id}",
                 headers=self.headers,
                 params={"deleteFiles": str(delete_files).lower()},
             )
-            r.raise_for_status()
+            if r.status_code >= 400:
+                raise httpx.HTTPStatusError(
+                    f"Radarr delete {arr_id} → {r.status_code}: {r.text[:400]}",
+                    request=r.request,
+                    response=r,
+                )
         log.info(f"Radarr: deleted movie {arr_id}")

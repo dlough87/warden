@@ -18,6 +18,11 @@
   <div class="card stat">
     <div class="stat-value {% if stats.condemned_count > 0 %}danger{% endif %}">{{ stats.condemned_count }}</div>
     <div class="stat-label">On Death Row</div>
+    {% if stats.stuck_count and stats.stuck_count > 0 %}
+    <div style="font-size:0.75rem;color:var(--orange,#f39c12);margin-top:4px">
+      ⚠ {{ stats.stuck_count }} stuck deletion{{ "s" if stats.stuck_count != 1 else "" }}
+    </div>
+    {% endif %}
   </div>
   <div class="card stat">
     <div class="stat-value">{{ format_size(stats.condemned_bytes or 0) }}</div>

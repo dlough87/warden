@@ -1009,11 +1009,13 @@ AGENT_TYPES = {
 }
 
 ALL_EVENTS = [
-    ("condemned",  "🚨", "New items condemned"),
-    ("reminder",   "⏳", "Death row reminders"),
-    ("deleted",    "🗑️",  "Items executed"),
-    ("clean_scan", "✅", "Clean scan"),
-    ("scan_error", "⚠️",  "Scan failed"),
+    ("condemned",     "🚨", "New items condemned"),
+    ("reminder",      "⏳", "Death row reminders"),
+    ("deleted",       "🗑️",  "Items executed"),
+    ("delete_failed", "⚠️",  "Deletions failed (will retry)"),
+    ("delete_stuck",  "🛑", "Deletions stuck (manual attention)"),
+    ("clean_scan",    "✅", "Clean scan"),
+    ("scan_error",    "⚠️",  "Scan failed"),
 ]
 
 

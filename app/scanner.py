@@ -17,6 +17,8 @@ import json
 import logging
 from datetime import date, timedelta
 
+import httpx
+
 from .config import get_config_async
 from .database import (
     DB_PATH, get_setting, set_setting, get_rules, get_all_media_items_map,
@@ -210,6 +212,7 @@ async def _do_scan():
                 "condemned_date": condemned_date,
                 "pardon_reason": None,
                 "reminder_sent_days": existing_reminder_sent,
+                "delete_attempts": (existing.get("delete_attempts") if existing else 0) or 0,
             })
         else:
             if current_status == "condemned":
@@ -297,54 +300,109 @@ async def _do_scan():
                 dry_run=True,
             )
         else:
+            deleted_items = []
+            failed_items = []
             for item in due_for_deletion:
-                await _delete_item(item, radarr, sonarr, stats)
-            if stats["deleted_count"]:
+                if await _delete_item(item, radarr, sonarr, stats):
+                    deleted_items.append(item)
+                else:
+                    failed_items.append(item)
+            if deleted_items:
                 await notifications.dispatch(
                     "deleted",
-                    items=due_for_deletion,
+                    items=deleted_items,
                     space_freed=stats["space_freed_bytes"],
                     dry_run=False,
                 )
+            if failed_items:
+                await notifications.dispatch(
+                    "delete_failed",
+                    items=failed_items,
+                )
+                stuck_items = [i for i in failed_items if (i.get("delete_attempts") or 0) >= 3]
+                if stuck_items:
+                    await notifications.dispatch(
+                        "delete_stuck",
+                        items=stuck_items,
+                    )
 
     await finish_scan_run(run_id, stats)
     log.info(f"=== Scan complete: {stats} ===")
 
 
-async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, stats: dict):
+_RETRY_BACKOFF = (5, 15, 45)
+_RETRYABLE_EXC = (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.WriteTimeout, httpx.RemoteProtocolError)
+
+
+async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, stats: dict) -> bool:
+    """Attempt to delete one item, retrying transient failures. Returns True on success."""
+    title = item["title"]
+    last_error = None
+
+    for attempt in range(len(_RETRY_BACKOFF)):
+        try:
+            if item["media_type"] == "movie":
+                detail = await radarr.get_movie_detail(item["arr_id"])
+                await radarr.delete_movie(item["arr_id"])
+                if detail.get("tmdb_id"):
+                    try:
+                        await radarr.add_exclusion(detail["tmdb_id"], title, item.get("year"))
+                    except Exception as e:
+                        log.warning(f"  Exclusion failed for {title}: {type(e).__name__}: {e}")
+                if detail.get("collection_tmdb_id"):
+                    try:
+                        await radarr.unmonitor_collection(detail["collection_tmdb_id"])
+                    except Exception as e:
+                        log.warning(f"  Collection unmonitor failed for {title}: {type(e).__name__}: {e}")
+            else:
+                detail = await sonarr.get_series_detail(item["arr_id"])
+                await sonarr.delete_series(item["arr_id"])
+                if detail.get("tvdb_id"):
+                    try:
+                        await sonarr.add_exclusion(detail["tvdb_id"], title)
+                    except Exception as e:
+                        log.warning(f"  Exclusion failed for {title}: {type(e).__name__}: {e}")
+
+            stats["deleted_count"] += 1
+            stats["space_freed_bytes"] += item.get("size_bytes") or 0
+            log.info(f"  DELETED: {title} ({item.get('year')})")
+
+            import aiosqlite
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE media_items SET status='deleted', delete_attempts=0, updated_at=? WHERE id=?",
+                    (now_iso(), item["id"]),
+                )
+                await db.commit()
+            return True
+
+        except httpx.HTTPStatusError as e:
+            last_error = e
+            status = e.response.status_code if e.response is not None else 0
+            # Don't retry 4xx — likely stale arr_id, bad auth, etc.
+            if status < 500:
+                break
+        except _RETRYABLE_EXC as e:
+            last_error = e
+        except Exception as e:
+            last_error = e
+            break  # unknown — don't retry blindly
+
+        if attempt < len(_RETRY_BACKOFF) - 1:
+            delay = _RETRY_BACKOFF[attempt]
+            log.warning(f"  Delete retry {attempt + 1}/{len(_RETRY_BACKOFF)} for {title} in {delay}s: {type(last_error).__name__}: {last_error}")
+            await asyncio.sleep(delay)
+
+    log.error(f"  Failed to delete {title}: {type(last_error).__name__}: {last_error}")
     try:
-        if item["media_type"] == "movie":
-            detail = await radarr.get_movie_detail(item["arr_id"])
-            await radarr.delete_movie(item["arr_id"])
-            if detail.get("tmdb_id"):
-                try:
-                    await radarr.add_exclusion(detail["tmdb_id"], item["title"], item.get("year"))
-                except Exception as e:
-                    log.warning(f"  Exclusion failed for {item['title']}: {e}")
-            if detail.get("collection_tmdb_id"):
-                try:
-                    await radarr.unmonitor_collection(detail["collection_tmdb_id"])
-                except Exception as e:
-                    log.warning(f"  Collection unmonitor failed for {item['title']}: {e}")
-        else:
-            detail = await sonarr.get_series_detail(item["arr_id"])
-            await sonarr.delete_series(item["arr_id"])
-            if detail.get("tvdb_id"):
-                try:
-                    await sonarr.add_exclusion(detail["tvdb_id"], item["title"])
-                except Exception as e:
-                    log.warning(f"  Exclusion failed for {item['title']}: {e}")
-
-        stats["deleted_count"] += 1
-        stats["space_freed_bytes"] += item.get("size_bytes") or 0
-        log.info(f"  DELETED: {item['title']} ({item.get('year')})")
-
         import aiosqlite
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "UPDATE media_items SET status='deleted', updated_at=? WHERE id=?",
+                "UPDATE media_items SET delete_attempts=COALESCE(delete_attempts,0)+1, updated_at=? WHERE id=?",
                 (now_iso(), item["id"]),
             )
             await db.commit()
+        item["delete_attempts"] = (item.get("delete_attempts") or 0) + 1
     except Exception as e:
-        log.error(f"  Failed to delete {item['title']}: {e}")
+        log.warning(f"  Could not bump delete_attempts for {title}: {e}")
+    return False

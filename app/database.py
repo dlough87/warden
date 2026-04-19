@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS media_items (
     death_row_date    TEXT,
     condemned_date    TEXT,
     pardon_reason     TEXT,
+    delete_attempts   INTEGER DEFAULT 0,
     updated_at        TEXT
 );
 
@@ -167,6 +168,7 @@ async def init_db():
             "ALTER TABLE rules ADD COLUMN include_genres TEXT",
             "ALTER TABLE media_items ADD COLUMN plex_rating_key INTEGER",
             "ALTER TABLE media_items ADD COLUMN reminder_sent_days TEXT",
+            "ALTER TABLE media_items ADD COLUMN delete_attempts INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(migration)
@@ -886,12 +888,16 @@ async def get_stats() -> dict:
         condemned = await (await db.execute(
             "SELECT COUNT(*), COALESCE(SUM(size_bytes),0) FROM media_items WHERE status='condemned'"
         )).fetchone()
+        stuck = await (await db.execute(
+            "SELECT COUNT(*) FROM media_items WHERE status='condemned' AND COALESCE(delete_attempts,0) >= 3"
+        )).fetchone()
         last_run = await (await db.execute(
             "SELECT started_at, completed_at FROM scan_runs ORDER BY id DESC LIMIT 1"
         )).fetchone()
         return {
             "condemned_count": condemned[0],
             "condemned_bytes": condemned[1],
+            "stuck_count": stuck[0] if stuck else 0,
             "last_run_at": last_run[0] if last_run else None,
             "last_run_completed": last_run[1] if last_run else None,
         }
