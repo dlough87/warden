@@ -232,6 +232,29 @@ async def _do_scan():
     await batch_upsert_media_items(items_to_write)
     log.info("Database write complete.")
 
+    # --- Clear ghost condemned records ---
+    # Items that were condemned in a prior scan but have since disappeared from
+    # Radarr/Sonarr (e.g. Radarr's DELETE call removed its DB row even though the
+    # file-delete step 500'd, leaving Warden stuck on a row that will never match
+    # a future fetch). Mark those as deleted so they stop repeating forever.
+    fetched_ids = {m["id"] for m in all_media}
+    ghost_ids = [
+        mid for mid, row in existing_map.items()
+        if row.get("status") == "condemned" and mid not in fetched_ids
+    ]
+    if ghost_ids:
+        import aiosqlite
+        ts = now_iso()
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.executemany(
+                "UPDATE media_items SET status='deleted', delete_attempts=0, updated_at=? WHERE id=?",
+                [(ts, mid) for mid in ghost_ids],
+            )
+            await db.commit()
+        for mid in ghost_ids:
+            row = existing_map[mid]
+            log.info(f"  GHOST CLEARED: {row.get('title')} ({row.get('year')}) — gone from source, marking deleted")
+
     # --- Notifications ---
     log.info("Sending notifications...")
     if newly_condemned:
