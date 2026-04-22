@@ -233,27 +233,34 @@ async def _do_scan():
     log.info("Database write complete.")
 
     # --- Clear ghost condemned records ---
-    # Items that were condemned in a prior scan but have since disappeared from
-    # Radarr/Sonarr (e.g. Radarr's DELETE call removed its DB row even though the
-    # file-delete step 500'd, leaving Warden stuck on a row that will never match
-    # a future fetch). Mark those as deleted so they stop repeating forever.
+    # Condemned items absent from the current fetch have already been removed from
+    # Radarr/Sonarr. Split by whether Warden ever attempted deletion:
+    #   delete_attempts > 0 → Warden tried but timed out; Radarr completed it in background
+    #   delete_attempts == 0 → disappeared externally (manual removal, etc.)
     fetched_ids = {m["id"] for m in all_media}
-    ghost_ids = [
-        mid for mid, row in existing_map.items()
-        if row.get("status") == "condemned" and mid not in fetched_ids
-    ]
-    if ghost_ids:
+    ghost_attempted = []   # Warden tried, deletion confirmed on next scan
+    ghost_silent    = []   # removed externally without Warden's involvement
+    for mid, row in existing_map.items():
+        if row.get("status") == "condemned" and mid not in fetched_ids:
+            if (row.get("delete_attempts") or 0) > 0:
+                ghost_attempted.append(row)
+            else:
+                ghost_silent.append(row)
+
+    all_ghosts = ghost_attempted + ghost_silent
+    if all_ghosts:
         import aiosqlite
         ts = now_iso()
         async with aiosqlite.connect(DB_PATH) as db:
             await db.executemany(
                 "UPDATE media_items SET status='deleted', delete_attempts=0, updated_at=? WHERE id=?",
-                [(ts, mid) for mid in ghost_ids],
+                [(ts, row["id"]) for row in all_ghosts],
             )
             await db.commit()
-        for mid in ghost_ids:
-            row = existing_map[mid]
-            log.info(f"  GHOST CLEARED: {row.get('title')} ({row.get('year')}) — gone from source, marking deleted")
+        for row in ghost_attempted:
+            log.info(f"  LATE CONFIRMED: {row.get('title')} ({row.get('year')}) — deletion confirmed on re-scan")
+        for row in ghost_silent:
+            log.info(f"  GHOST CLEARED: {row.get('title')} ({row.get('year')}) — removed externally")
 
     # --- Notifications ---
     log.info("Sending notifications...")
@@ -314,6 +321,9 @@ async def _do_scan():
                 )
                 await db.commit()
 
+    deleted_items: list = []
+    failed_items: list = []
+
     if due_for_deletion:
         if dry_run:
             await notifications.dispatch(
@@ -323,31 +333,39 @@ async def _do_scan():
                 dry_run=True,
             )
         else:
-            deleted_items = []
-            failed_items = []
             for item in due_for_deletion:
                 if await _delete_item(item, radarr, sonarr, stats):
                     deleted_items.append(item)
                 else:
                     failed_items.append(item)
-            if deleted_items:
+
+    if not dry_run:
+        # Late-confirmed ghosts: Warden timed out on a prior scan but Radarr completed
+        # the deletion. Add to stats and Discord regardless of whether there were new
+        # due_for_deletion items this scan.
+        for row in ghost_attempted:
+            stats["deleted_count"] += 1
+            stats["space_freed_bytes"] += row.get("size_bytes") or 0
+
+        all_deleted = deleted_items + ghost_attempted
+        if all_deleted:
+            await notifications.dispatch(
+                "deleted",
+                items=all_deleted,
+                space_freed=stats["space_freed_bytes"],
+                dry_run=False,
+            )
+        if failed_items:
+            await notifications.dispatch(
+                "delete_failed",
+                items=failed_items,
+            )
+            stuck_items = [i for i in failed_items if (i.get("delete_attempts") or 0) >= 3]
+            if stuck_items:
                 await notifications.dispatch(
-                    "deleted",
-                    items=deleted_items,
-                    space_freed=stats["space_freed_bytes"],
-                    dry_run=False,
+                    "delete_stuck",
+                    items=stuck_items,
                 )
-            if failed_items:
-                await notifications.dispatch(
-                    "delete_failed",
-                    items=failed_items,
-                )
-                stuck_items = [i for i in failed_items if (i.get("delete_attempts") or 0) >= 3]
-                if stuck_items:
-                    await notifications.dispatch(
-                        "delete_stuck",
-                        items=stuck_items,
-                    )
 
     await finish_scan_run(run_id, stats)
     log.info(f"=== Scan complete: {stats} ===")
@@ -366,12 +384,8 @@ async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, s
         try:
             if item["media_type"] == "movie":
                 detail = await radarr.get_movie_detail(item["arr_id"])
+                # addImportExclusion=true is passed on the delete call itself (atomic)
                 await radarr.delete_movie(item["arr_id"])
-                if detail.get("tmdb_id"):
-                    try:
-                        await radarr.add_exclusion(detail["tmdb_id"], title, item.get("year"))
-                    except Exception as e:
-                        log.warning(f"  Exclusion failed for {title}: {type(e).__name__}: {e}")
                 if detail.get("collection_tmdb_id"):
                     try:
                         await radarr.unmonitor_collection(detail["collection_tmdb_id"])
@@ -407,6 +421,22 @@ async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, s
                 break
         except _RETRYABLE_EXC as e:
             last_error = e
+            # Timeout: Radarr/Sonarr may still be processing (large directories take minutes).
+            # Poll every 30s for up to 10 minutes before recording a failure.
+            log.warning(f"  Delete timed out for {title} — polling for confirmation (up to 10 min)...")
+            if await _poll_until_deleted(item, radarr, sonarr):
+                stats["deleted_count"] += 1
+                stats["space_freed_bytes"] += item.get("size_bytes") or 0
+                log.info(f"  LATE CONFIRMED: {title} ({item.get('year')}) — deletion verified after timeout")
+                import aiosqlite
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        "UPDATE media_items SET status='deleted', delete_attempts=0, updated_at=? WHERE id=?",
+                        (now_iso(), item["id"]),
+                    )
+                    await db.commit()
+                return True
+            log.warning(f"  {title} still present after polling window — marking as failed")
         except Exception as e:
             last_error = e
             break  # unknown — don't retry blindly
@@ -416,7 +446,8 @@ async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, s
             log.warning(f"  Delete retry {attempt + 1}/{len(_RETRY_BACKOFF)} for {title} in {delay}s: {type(last_error).__name__}: {last_error}")
             await asyncio.sleep(delay)
 
-    log.error(f"  Failed to delete {title}: {type(last_error).__name__}: {last_error}")
+    if last_error is not None:
+        log.error(f"  Failed to delete {title}: {type(last_error).__name__}: {last_error}")
     try:
         import aiosqlite
         async with aiosqlite.connect(DB_PATH) as db:
@@ -428,4 +459,30 @@ async def _delete_item(item: dict, radarr: RadarrClient, sonarr: SonarrClient, s
         item["delete_attempts"] = (item.get("delete_attempts") or 0) + 1
     except Exception as e:
         log.warning(f"  Could not bump delete_attempts for {title}: {e}")
+    return False
+
+
+async def _poll_until_deleted(
+    item: dict,
+    radarr: "RadarrClient",
+    sonarr: "SonarrClient",
+    interval: int = 30,
+    max_wait: int = 600,
+) -> bool:
+    """Poll Radarr/Sonarr every `interval` seconds for up to `max_wait` seconds.
+    Returns True as soon as the item is gone (404), False if still present at timeout."""
+    elapsed = 0
+    while elapsed < max_wait:
+        await asyncio.sleep(interval)
+        elapsed += interval
+        try:
+            if item["media_type"] == "movie":
+                still_present = await radarr.movie_exists(item["arr_id"])
+            else:
+                still_present = await sonarr.series_exists(item["arr_id"])
+            if not still_present:
+                return True
+            log.debug(f"  Still present after {elapsed}s — continuing to poll...")
+        except Exception:
+            pass  # network hiccup during poll — keep trying
     return False

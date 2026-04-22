@@ -87,6 +87,15 @@ class SonarrClient:
             r.raise_for_status()
         log.info(f"Sonarr: added exclusion for {title} (tvdb:{tvdb_id})")
 
+    async def series_exists(self, arr_id: int) -> bool:
+        """Returns False if the series is gone (404), True otherwise (including on errors)."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{self.base}/api/v3/series/{arr_id}", headers=self.headers)
+            return r.status_code != 404
+        except Exception:
+            return True  # safe default — can't confirm deletion, assume still present
+
     async def delete_series(self, arr_id: int, delete_files: bool = True):
         async with httpx.AsyncClient(timeout=120) as client:
             r = await client.delete(

@@ -119,12 +119,24 @@ class RadarrClient:
             r.raise_for_status()
         log.info(f"Radarr: unmonitored collection '{collection['title']}' (tmdb:{collection_tmdb_id})")
 
+    async def movie_exists(self, arr_id: int) -> bool:
+        """Returns False if the movie is gone (404), True otherwise (including on errors)."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(f"{self.base}/api/v3/movie/{arr_id}", headers=self.headers)
+            return r.status_code != 404
+        except Exception:
+            return True  # safe default — can't confirm deletion, assume still present
+
     async def delete_movie(self, arr_id: int, delete_files: bool = True):
         async with httpx.AsyncClient(timeout=120) as client:
             r = await client.delete(
                 f"{self.base}/api/v3/movie/{arr_id}",
                 headers=self.headers,
-                params={"deleteFiles": str(delete_files).lower()},
+                params={
+                    "deleteFiles": str(delete_files).lower(),
+                    "addImportExclusion": "true",
+                },
             )
             if r.status_code >= 400:
                 raise httpx.HTTPStatusError(
