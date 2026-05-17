@@ -23,7 +23,7 @@ from ..database import (
     get_report_age_buckets, get_report_watch_stats, get_report_top_condemned,
     get_report_timeline_data,
     get_media_items, get_media_item,
-    pardon_item, unpardon_item, expedite_item, get_rules, get_rule, upsert_rule, delete_rule,
+    pardon_item, unpardon_item, condemn_item, expedite_item, get_rules, get_rule, upsert_rule, delete_rule,
     get_all_settings, get_setting, set_setting, set_settings_bulk, get_library_page,
     get_notification_agents, get_notification_agent,
     upsert_notification_agent, delete_notification_agent,
@@ -794,6 +794,20 @@ async def library_item_unpardon(request: Request, item_id: str):
     await unpardon_item(item_id)
     title = item["title"] if item else item_id
     await log_audit("Item unpardoned", title, request.client.host)
+    return RedirectResponse(f"/library/{item_id}", status_code=303)
+
+
+@router.post("/library/{item_id}/condemn", response_class=HTMLResponse)
+async def library_item_condemn(request: Request, item_id: str, back: str = Form("item")):
+    item = await get_media_item(item_id)
+    if not item or item.get("status") != "ok":
+        redirect_url = "/library" if back == "library" else f"/library/{item_id}"
+        return RedirectResponse(redirect_url, status_code=303)
+    await condemn_item(item_id)
+    title = item["title"] if item else item_id
+    await log_audit("Item manually condemned", title, request.client.host)
+    if back == "library":
+        return RedirectResponse("/library", status_code=303)
     return RedirectResponse(f"/library/{item_id}", status_code=303)
 
 

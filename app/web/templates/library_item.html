@@ -189,6 +189,18 @@
   </div>
   {% endif %}
 </div>
+{% elif item.status == "ok" %}
+<div class="card" style="margin-bottom:20px">
+  <h2>Warden Status</h2>
+  <p style="font-size:0.85rem;color:var(--muted);margin:8px 0 12px">
+    This item is not currently on Death Row. You can manually condemn it to place it on Death Row
+    for the standard grace period. It will show <strong>Manual</strong> as the rule on the Death Row tab.
+  </p>
+  <form method="POST" action="/library/{{ item.id | urlencode }}/condemn"
+        onsubmit="return confirm('Manually condemn \'{{ item.title | replace(\"'\", \"\\\\'\") }}\'?')">
+    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent)">Condemn</button>
+  </form>
+</div>
 {% elif item.status in ("condemned", "pardoned") or item.criteria_matched %}
 <div class="card" style="margin-bottom:20px;border-color:{% if item.status == 'condemned' %}rgba(231,76,60,0.4){% elif item.status == 'pardoned' %}rgba(46,204,113,0.4){% else %}var(--border){% endif %}">
   <h2>Warden Status</h2>

@@ -61,6 +61,7 @@
         <th><a href="{{ sort_url('total_plays') }}" style="color:inherit">Plays {% if sort=='total_plays' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
         <th><a href="{{ sort_url('status') }}" style="color:inherit">Status {% if sort=='status' %}{{ '↑' if order=='asc' else '↓' }}{% endif %}</a></th>
         <th>Rules Matched</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -110,9 +111,18 @@
           {% endfor %}
         {% else %}—{% endif %}
       </td>
+      <td>
+        {% if item.status == 'ok' %}
+        <form method="POST" action="/library/{{ item.id | urlencode }}/condemn" style="display:inline"
+              onsubmit="return confirm('Manually condemn \'{{ item.title | replace("'", "\\'") }}\'? It will be placed on Death Row.')">
+          <input type="hidden" name="back" value="library">
+          <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent)">Condemn</button>
+        </form>
+        {% else %}—{% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="10" class="empty">No items match the current filters.</td></tr>
+    <tr><td colspan="11" class="empty">No items match the current filters.</td></tr>
     {% endfor %}
     </tbody>
   </table>

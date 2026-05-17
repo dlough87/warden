@@ -186,6 +186,7 @@ async def _do_scan():
                 "condemned_date": existing.get("condemned_date") if existing else None,
                 "pardon_reason": existing.get("pardon_reason") if existing else None,
                 "reminder_sent_days": existing_reminder_sent,
+                "manual_condemn": existing.get("manual_condemn", 0) if existing else 0,
             })
             continue
 
@@ -213,19 +214,36 @@ async def _do_scan():
                 "pardon_reason": None,
                 "reminder_sent_days": existing_reminder_sent,
                 "delete_attempts": (existing.get("delete_attempts") if existing else 0) or 0,
+                "manual_condemn": existing.get("manual_condemn", 0) if existing else 0,
             })
         else:
-            if current_status == "condemned":
-                log.info(f"  CLEARED: {title} ({year}) — no longer matches any rule")
-            items_to_write.append({
-                **item,
-                "criteria_matched": [],
-                "status": "ok",
-                "death_row_date": None,
-                "condemned_date": None,
-                "pardon_reason": None,
-                "reminder_sent_days": None,  # reset so reminders re-fire if re-condemned
-            })
+            manual = existing.get("manual_condemn") if existing else False
+            if manual:
+                # Manually condemned — keep on death row even though no rules match
+                items_to_write.append({
+                    **item,
+                    "criteria_matched": ["Manual"],
+                    "status": "condemned",
+                    "death_row_date": current_death_row_date or today.isoformat(),
+                    "condemned_date": (existing.get("condemned_date") if existing else None) or today.isoformat(),
+                    "pardon_reason": None,
+                    "reminder_sent_days": existing_reminder_sent,
+                    "delete_attempts": (existing.get("delete_attempts") if existing else 0) or 0,
+                    "manual_condemn": 1,
+                })
+            else:
+                if current_status == "condemned":
+                    log.info(f"  CLEARED: {title} ({year}) — no longer matches any rule")
+                items_to_write.append({
+                    **item,
+                    "criteria_matched": [],
+                    "status": "ok",
+                    "death_row_date": None,
+                    "condemned_date": None,
+                    "pardon_reason": None,
+                    "reminder_sent_days": None,  # reset so reminders re-fire if re-condemned
+                    "manual_condemn": 0,
+                })
 
     # --- Single batch write (one transaction, UI never blocked) ---
     log.info(f"Evaluation complete. Writing {len(items_to_write)} items to database...")
