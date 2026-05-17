@@ -197,7 +197,8 @@
     for the standard grace period. It will show <strong>Manual</strong> as the rule on the Death Row tab.
   </p>
   <form method="POST" action="/library/{{ item.id | urlencode }}/condemn"
-        onsubmit="return confirm('Manually condemn \'{{ item.title | replace(\"'\", \"\\\\'\") }}\'?')">
+        data-title="{{ item.title | e }}"
+        onsubmit="return confirm('Manually condemn \'' + this.dataset.title + '\'?')">
     <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent)">Condemn</button>
   </form>
 </div>

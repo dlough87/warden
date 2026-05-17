@@ -114,7 +114,8 @@
       <td>
         {% if item.status == 'ok' %}
         <form method="POST" action="/library/{{ item.id | urlencode }}/condemn" style="display:inline"
-              onsubmit="return confirm('Manually condemn \'{{ item.title | replace("'", "\\'") }}\'? It will be placed on Death Row.')">
+              data-title="{{ item.title | e }}"
+              onsubmit="return confirm('Manually condemn \'' + this.dataset.title + '\'?')">
           <input type="hidden" name="back" value="library">
           <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent)">Condemn</button>
         </form>
