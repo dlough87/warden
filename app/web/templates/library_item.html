@@ -240,11 +240,18 @@
     {% endif %}
   </div>
 
-  <div class="pardon-form">
+  <div class="pardon-form" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
     <form method="POST" action="/library/{{ item.id | urlencode }}/pardon" style="display:flex;gap:8px;align-items:center">
       <input type="text" name="reason" placeholder="Reason to pardon..." style="width:280px">
       <button type="submit" class="btn btn-ghost btn-sm">Pardon</button>
     </form>
+    {% if item.manual_condemn %}
+    <form method="POST" action="/library/{{ item.id | urlencode }}/uncondemn"
+          data-title="{{ item.title | e }}"
+          onsubmit="return confirm('Remove the manual condemn for \'' + this.dataset.title + '\'? It will return to the library and be subject to normal rules.')">
+      <button type="submit" class="btn btn-ghost btn-sm">Remove Condemn</button>
+    </form>
+    {% endif %}
   </div>
 
   {% elif item.status == "pardoned" %}

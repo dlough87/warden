@@ -23,7 +23,7 @@ from ..database import (
     get_report_age_buckets, get_report_watch_stats, get_report_top_condemned,
     get_report_timeline_data,
     get_media_items, get_media_item,
-    pardon_item, unpardon_item, condemn_item, expedite_item, get_rules, get_rule, upsert_rule, delete_rule,
+    pardon_item, unpardon_item, condemn_item, uncondemn_item, expedite_item, get_rules, get_rule, upsert_rule, delete_rule,
     get_all_settings, get_setting, set_setting, set_settings_bulk, get_library_page,
     get_notification_agents, get_notification_agent,
     upsert_notification_agent, delete_notification_agent,
@@ -624,6 +624,15 @@ async def pardon(request: Request, item_id: str, reason: str = Form(...)):
     return HTMLResponse('<tr><td colspan="9" class="pardoned">✓ Pardoned</td></tr>')
 
 
+@router.post("/death-row/{item_id}/uncondemn", response_class=HTMLResponse)
+async def death_row_uncondemn(request: Request, item_id: str):
+    item = await get_media_item(item_id)
+    await uncondemn_item(item_id)
+    title = item["title"] if item else item_id
+    await log_audit("Manual condemn removed", title, request.client.host)
+    return HTMLResponse('<tr><td colspan="9" style="color:var(--muted);text-align:center">✓ Condemn removed — item returned to library</td></tr>')
+
+
 # ── Candidates ────────────────────────────────────────────────────────────────
 
 _CANDIDATES_SORTS = {"title", "imdb_rating", "size_bytes", "added_date", "last_watched_date", "total_plays"}
@@ -794,6 +803,15 @@ async def library_item_unpardon(request: Request, item_id: str):
     await unpardon_item(item_id)
     title = item["title"] if item else item_id
     await log_audit("Item unpardoned", title, request.client.host)
+    return RedirectResponse(f"/library/{item_id}", status_code=303)
+
+
+@router.post("/library/{item_id}/uncondemn", response_class=HTMLResponse)
+async def library_item_uncondemn(request: Request, item_id: str):
+    item = await get_media_item(item_id)
+    await uncondemn_item(item_id)
+    title = item["title"] if item else item_id
+    await log_audit("Manual condemn removed", title, request.client.host)
     return RedirectResponse(f"/library/{item_id}", status_code=303)
 
 

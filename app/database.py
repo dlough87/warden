@@ -532,7 +532,20 @@ async def pardon_item(item_id: str, reason: str):
 async def unpardon_item(item_id: str):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "UPDATE media_items SET status='ok', pardon_reason=NULL, death_row_date=NULL, manual_condemn=0, updated_at=? WHERE id=?",
+            "UPDATE media_items SET status='ok', pardon_reason=NULL, death_row_date=NULL, updated_at=? WHERE id=?",
+            (now_iso(), item_id),
+        )
+        await db.commit()
+
+
+async def uncondemn_item(item_id: str):
+    """Clear a manual condemn — item returns to clean ok, subject to normal rule evaluation."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE media_items
+               SET status='ok', manual_condemn=0, criteria_matched='[]',
+                   death_row_date=NULL, condemned_date=NULL, pardon_reason=NULL, updated_at=?
+               WHERE id=?""",
             (now_iso(), item_id),
         )
         await db.commit()
