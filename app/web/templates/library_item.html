@@ -189,6 +189,19 @@
   </div>
   {% endif %}
 </div>
+{% elif item.status == "ok" %}
+<div class="card" style="margin-bottom:20px">
+  <h2>Warden Status</h2>
+  <p style="font-size:0.85rem;color:var(--muted);margin:8px 0 12px">
+    This item is not currently on Death Row. You can manually condemn it to place it on Death Row
+    for the standard grace period. It will show <strong>Manual</strong> as the rule on the Death Row tab.
+  </p>
+  <form method="POST" action="/library/{{ item.id | urlencode }}/condemn"
+        data-title="{{ item.title | e }}"
+        onsubmit="return confirm('Manually condemn \'' + this.dataset.title + '\'?')">
+    <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--accent)">Condemn</button>
+  </form>
+</div>
 {% elif item.status in ("condemned", "pardoned") or item.criteria_matched %}
 <div class="card" style="margin-bottom:20px;border-color:{% if item.status == 'condemned' %}rgba(231,76,60,0.4){% elif item.status == 'pardoned' %}rgba(46,204,113,0.4){% else %}var(--border){% endif %}">
   <h2>Warden Status</h2>
@@ -227,11 +240,18 @@
     {% endif %}
   </div>
 
-  <div class="pardon-form">
+  <div class="pardon-form" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
     <form method="POST" action="/library/{{ item.id | urlencode }}/pardon" style="display:flex;gap:8px;align-items:center">
       <input type="text" name="reason" placeholder="Reason to pardon..." style="width:280px">
       <button type="submit" class="btn btn-ghost btn-sm">Pardon</button>
     </form>
+    {% if item.manual_condemn %}
+    <form method="POST" action="/library/{{ item.id | urlencode }}/uncondemn"
+          data-title="{{ item.title | e }}"
+          onsubmit="return confirm('Remove the manual condemn for \'' + this.dataset.title + '\'? It will return to the library and be subject to normal rules.')">
+      <button type="submit" class="btn btn-ghost btn-sm">Remove Condemn</button>
+    </form>
+    {% endif %}
   </div>
 
   {% elif item.status == "pardoned" %}

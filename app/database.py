@@ -169,6 +169,7 @@ async def init_db():
             "ALTER TABLE media_items ADD COLUMN plex_rating_key INTEGER",
             "ALTER TABLE media_items ADD COLUMN reminder_sent_days TEXT",
             "ALTER TABLE media_items ADD COLUMN delete_attempts INTEGER DEFAULT 0",
+            "ALTER TABLE media_items ADD COLUMN manual_condemn INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(migration)
@@ -482,8 +483,8 @@ async def batch_upsert_media_items(items: list[dict]):
                (id, media_type, arr_id, title, year, imdb_rating, genres, added_date,
                 last_watched_date, max_watch_percent, total_plays, size_bytes,
                 criteria_matched, status, death_row_date, condemned_date, pardon_reason,
-                plex_rating_key, reminder_sent_days, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                plex_rating_key, reminder_sent_days, manual_condemn, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(id) DO UPDATE SET
                  title=excluded.title, year=excluded.year, imdb_rating=excluded.imdb_rating,
                  genres=excluded.genres, added_date=excluded.added_date,
@@ -493,7 +494,8 @@ async def batch_upsert_media_items(items: list[dict]):
                  status=excluded.status, death_row_date=excluded.death_row_date,
                  condemned_date=excluded.condemned_date,
                  plex_rating_key=excluded.plex_rating_key,
-                 reminder_sent_days=excluded.reminder_sent_days, updated_at=excluded.updated_at"""
+                 reminder_sent_days=excluded.reminder_sent_days,
+                 manual_condemn=excluded.manual_condemn, updated_at=excluded.updated_at"""
 
     rows = []
     for item in items:
@@ -509,7 +511,8 @@ async def batch_upsert_media_items(items: list[dict]):
             json.dumps(criteria) if isinstance(criteria, list) else criteria,
             item.get("status", "ok"), item.get("death_row_date"),
             item.get("condemned_date"), item.get("pardon_reason"),
-            item.get("plex_rating_key"), item.get("reminder_sent_days"), ts,
+            item.get("plex_rating_key"), item.get("reminder_sent_days"),
+            1 if item.get("manual_condemn") else 0, ts,
         ))
 
     async with aiosqlite.connect(DB_PATH) as db:
@@ -531,6 +534,33 @@ async def unpardon_item(item_id: str):
         await db.execute(
             "UPDATE media_items SET status='ok', pardon_reason=NULL, death_row_date=NULL, updated_at=? WHERE id=?",
             (now_iso(), item_id),
+        )
+        await db.commit()
+
+
+async def uncondemn_item(item_id: str):
+    """Clear a manual condemn — item returns to clean ok, subject to normal rule evaluation."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE media_items
+               SET status='ok', manual_condemn=0, criteria_matched='[]',
+                   death_row_date=NULL, condemned_date=NULL, pardon_reason=NULL, updated_at=?
+               WHERE id=?""",
+            (now_iso(), item_id),
+        )
+        await db.commit()
+
+
+async def condemn_item(item_id: str):
+    today = datetime.now(timezone.utc).date().isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """UPDATE media_items
+               SET status='condemned', death_row_date=?, condemned_date=?,
+                   criteria_matched='["Manual"]', manual_condemn=1,
+                   pardon_reason=NULL, updated_at=?
+               WHERE id=?""",
+            (today, today, now_iso(), item_id),
         )
         await db.commit()
 
