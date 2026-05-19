@@ -3,7 +3,7 @@ Main scan orchestrator.
 
 Flow:
 1. Fetch all movies (Radarr) + shows (Sonarr)
-2. Build Tautulli watch map (primary) + Plex fallback map
+2. Build Plex watch map (IMDB ID primary key, title+year fallback)
 3. Load all existing DB records into memory (single read)
 4. Enrich each item with watch data + evaluate against enabled rules
 5. Determine status transitions (all in memory)
@@ -27,7 +27,6 @@ from .database import (
 from .criteria import evaluate
 from .sources.radarr import RadarrClient
 from .sources.sonarr import SonarrClient
-from .sources.tautulli import TautulliClient
 from .sources.plex import PlexClient
 from . import notifications
 
@@ -63,7 +62,6 @@ async def run_scan():
 async def _do_scan():
     cfg = await get_config_async()
     dry_run = (await get_setting("dry_run") or "true").lower() == "true"
-    threshold = float(await get_setting("watch_threshold_percent") or 80)
     death_row_days = int(await get_setting("death_row_days") or 30)
 
     run_id = await start_scan_run(dry_run)
@@ -79,11 +77,8 @@ async def _do_scan():
     all_media = movies + shows
 
     # --- Build watch maps ---
-    tautulli = TautulliClient(cfg.tautulli.url, cfg.tautulli.api_key)
     plex = PlexClient(cfg.plex.url, cfg.plex.token)
-
-    tautulli_map = await tautulli.get_watch_map(threshold)
-    plex_fallback, plex_added_at, plex_rating_keys = await plex.build_plex_maps()
+    plex_watch_map, plex_added_at, plex_rating_keys = await plex.build_plex_maps()
 
     # Cache machine identifier for Plex deep links (fetch once per scan)
     machine_id = await plex.get_machine_identifier()
@@ -110,51 +105,41 @@ async def _do_scan():
 
         plex_key = (title.strip().lower(), year)
         plex_key_noyear = (title.strip().lower(), None)
+        imdb_id = media.get("imdb_id")
 
-        # --- Watch data ---
-        # Tautulli: threshold-filtered sessions, limited to Tautulli install date
-        # Plex: all-time history, no threshold precision (fires at ~90%)
-        tautulli_watch = tautulli.lookup(tautulli_map, title, year)
-        plex_watch = plex_fallback.get(plex_key)
+        # --- Watch data (Plex-only) ---
+        # IMDB ID is the primary key; title+year is the fallback for items without one.
+        plex_watch = plex_watch_map.get(imdb_id) if imdb_id else None
+        if plex_watch is None:
+            plex_watch = plex_watch_map.get(plex_key)
         if plex_watch is None and year is not None:
-            plex_watch = plex_fallback.get(plex_key_noyear)
+            plex_watch = plex_watch_map.get(plex_key_noyear)
 
-        # last_watched: Tautulli is authoritative — threshold-filtered, precise.
-        # Plex lastViewedAt is only used when Tautulli has no sessions at all for
-        # this item (i.e. pre-dates Tautulli install). Never mix sources here —
-        # Plex fires at ~90% but has no per-session threshold control, so using
-        # it alongside Tautulli data would corrupt the threshold-based logic.
-        tautulli_last = tautulli_watch["last_watched"] if tautulli_watch else None
-        plex_last = plex_watch["last_watched"] if plex_watch else None
-        last_watched = tautulli_last if tautulli_watch else plex_last
-
-        # max_watch_percent + total_plays: Tautulli primary (precise), Plex fallback
-        # Do NOT combine play counts — would double-count overlapping history
-        if tautulli_watch:
-            max_watch_percent = tautulli_watch["max_percent"]
-            total_plays = tautulli_watch["total_plays"]
-        elif plex_watch:
-            max_watch_percent = plex_watch["max_percent"]  # fixed 90.0
-            total_plays = plex_watch["total_plays"]
-        else:
-            max_watch_percent = None
-            total_plays = 0
+        last_watched = plex_watch["last_watched"] if plex_watch else None
+        total_plays = plex_watch["total_plays"] if plex_watch else 0
 
         # --- Added date ---
-        # Resets and migrations always push dates forward (make items appear newer).
-        # Taking the minimum across sources therefore gives the most accurate date.
-        # Movies: min(Radarr movieFile.dateAdded, Plex addedAt, Plex lastViewedAt)
-        # Shows:  min(Sonarr series.added, Plex addedAt, Plex lastViewedAt)
-        # Plex lastViewedAt predates both Radarr/Sonarr migrations and Plex library
-        # rebuilds — if a movie was watched 11yr ago it was in the collection then.
+        # Taking the minimum across sources gives the most accurate date.
+        # Plex lastViewedAt predates library rebuilds — if something was watched years
+        # ago it was in the collection then.
         arr_added = media.get("added_date")
-        plex_added = plex_added_at.get(plex_key)
+        plex_added = plex_added_at.get(imdb_id) if imdb_id else None
+        if plex_added is None:
+            plex_added = plex_added_at.get(plex_key)
         if plex_added is None and year is not None:
             plex_added = plex_added_at.get(plex_key_noyear)
-        added_candidates = [d for d in [arr_added, plex_added, plex_last] if d]
+        # Only use last_watched as an added-date lower bound if it's plausible —
+        # i.e. not before the item's own release year (guards against stale Plex
+        # history records being attributed to wrong items via title-key collisions).
+        lw_for_added = last_watched if (
+            last_watched and (year is None or last_watched >= f"{year}-01-01")
+        ) else None
+        added_candidates = [d for d in [arr_added, plex_added, lw_for_added] if d]
         added_date = min(added_candidates) if added_candidates else None
 
-        plex_rating_key = plex_rating_keys.get(plex_key)
+        plex_rating_key = plex_rating_keys.get(imdb_id) if imdb_id else None
+        if plex_rating_key is None:
+            plex_rating_key = plex_rating_keys.get(plex_key)
         if plex_rating_key is None and year is not None:
             plex_rating_key = plex_rating_keys.get(plex_key_noyear)
 
@@ -162,7 +147,6 @@ async def _do_scan():
             **media,
             "added_date": added_date,
             "last_watched_date": last_watched,
-            "max_watch_percent": max_watch_percent,
             "total_plays": total_plays,
             "plex_rating_key": plex_rating_key,
         }

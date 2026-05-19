@@ -66,7 +66,7 @@
 </div>
 
 {# ── Watch Stats ───────────────────────────────────────────────────────────── #}
-<div class="grid grid-4" style="margin-bottom:20px">
+<div class="grid grid-3" style="margin-bottom:20px">
   <div class="card stat">
     <div class="stat-value {% if item.total_plays == 0 %}danger{% endif %}">{{ item.total_plays or 0 }}</div>
     <div class="stat-label">Total Plays</div>
@@ -76,12 +76,6 @@
       {{ format_age(item.last_watched_date) if item.last_watched_date else "Never" }}
     </div>
     <div class="stat-label">Last Watched</div>
-  </div>
-  <div class="card stat">
-    <div class="stat-value" style="font-size:1.3rem">
-      {% if item.max_watch_percent %}{{ "%.0f"|format(item.max_watch_percent) }}%{% else %}—{% endif %}
-    </div>
-    <div class="stat-label">Max Watch %</div>
   </div>
   <div class="card stat">
     <div class="stat-value" style="font-size:1.3rem">{{ format_size(item.size_bytes) }}</div>
