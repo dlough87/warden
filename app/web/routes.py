@@ -885,7 +885,7 @@ async def save_settings(request: Request):
         "dry_run": "true" if form.get("dry_run") == "true" else "false",
         "schedule": new_schedule,
     }
-    for key in ("watch_threshold_percent", "tv_watched_definition", "death_row_days", "expedite_days", "timezone"):
+    for key in ("tv_watched_definition", "death_row_days", "expedite_days", "timezone"):
         value = form.get(key)
         if value is not None:
             pairs[key] = str(value)
@@ -921,7 +921,6 @@ async def save_connections(request: Request):
             "radarr_url", "radarr_api_key", "radarr_public_url",
             "sonarr_url", "sonarr_api_key", "sonarr_public_url",
             "plex_url", "plex_token", "plex_public_url",
-            "tautulli_url", "tautulli_api_key", "tautulli_public_url",
         )
         if form.get(key) is not None
     }
@@ -1000,24 +999,6 @@ async def test_plex():
     except Exception as e:
         return _test_badge(False, str(e)[:80])
 
-
-@router.post("/settings/test/tautulli", response_class=HTMLResponse)
-async def test_tautulli():
-    import httpx
-    cfg = await get_config_async()
-    try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            r = await client.get(
-                f"{cfg.tautulli.url.rstrip('/')}/api/v2",
-                params={"apikey": cfg.tautulli.api_key, "cmd": "get_server_info"},
-            )
-            r.raise_for_status()
-            data = r.json()
-        info = data.get("response", {}).get("data", {})
-        name = info.get("pms_name") or "Tautulli"
-        return _test_badge(True, f"Connected — {name}")
-    except Exception as e:
-        return _test_badge(False, str(e)[:80])
 
 
 @router.post("/settings/notifications/agents/{agent_id}/test", response_class=HTMLResponse)

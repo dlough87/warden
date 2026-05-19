@@ -3,7 +3,7 @@
 > [!WARNING]
 > **Use at your own risk.** Warden permanently deletes media files from disk. The author accepts no responsibility for any data loss, accidental deletion, or damage caused by using this software. Always start with **dry run mode enabled** and review the Death Row list carefully before allowing real deletions.
 
-Warden automatically removes stale movies and TV shows from your Plex library. It works by connecting to Radarr and Sonarr (to manage your library) and Plex + Tautulli (to track what's been watched), then applies your own rules to decide what gets condemned and eventually executed.
+Warden automatically removes stale movies and TV shows from your Plex library. It works by connecting to Radarr and Sonarr (to manage your library) and Plex (to track what's been watched), then applies your own rules to decide what gets condemned and eventually executed.
 
 ## Features
 
@@ -23,7 +23,6 @@ Warden automatically removes stale movies and TV shows from your Plex library. I
 - Docker
 - Radarr and/or Sonarr
 - Plex Media Server
-- Tautulli (optional, for watch history)
 
 ---
 
@@ -76,7 +75,7 @@ docker run -d \
 
 1. Open `http://your-server-ip:8787` in your browser
 2. You'll be prompted to create an admin username and password
-3. Go to **Settings → Connections** and enter your Radarr, Sonarr, Plex, and Tautulli details
+3. Go to **Settings → Connections** and enter your Radarr, Sonarr, and Plex details
 4. Go to **Settings → General** and configure your scan schedule, death row period, and timezone
 5. Create at least one rule under **Rules**
 6. Run a scan from the **Dashboard** — in dry run mode first to review what would be affected

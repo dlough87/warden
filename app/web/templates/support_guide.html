@@ -84,7 +84,7 @@
   <h2 id="overview">1. Overview</h2>
   <p>
     <strong>Warden</strong> is an automated media library hygiene tool. It connects to your Radarr and Sonarr instances
-    to discover every movie and TV show in your collection, queries Tautulli (and Plex as a fallback) for watch history,
+    to discover every movie and TV show in your collection, queries Plex for watch history,
     evaluates each item against a set of configurable rules, and automatically removes items that no longer belong in
     your library — while giving you full control over the process.
   </p>
@@ -103,7 +103,7 @@
   <div class="flow">
     <div class="flow-step"><strong>1. Fetch media</strong> — Radarr provides all movies; Sonarr provides all TV series</div>
     <div class="flow-arrow">↓</div>
-    <div class="flow-step"><strong>2. Build watch maps</strong> — Tautulli (primary, threshold-filtered) and Plex (fallback) provide per-item watch history</div>
+    <div class="flow-step"><strong>2. Build watch maps</strong> — Plex provides per-item watch history (library metadata supplemented by full play history)</div>
     <div class="flow-arrow">↓</div>
     <div class="flow-step"><strong>3. Evaluate rules</strong> — Each item is tested against every enabled rule; a match on any rule condemns the item</div>
     <div class="flow-arrow">↓</div>
@@ -141,7 +141,6 @@
       <tr><td>Radarr</td><td>Internal URL + API key</td><td>Radarr → Settings → General → Security → API Key</td></tr>
       <tr><td>Sonarr</td><td>Internal URL + API key</td><td>Sonarr → Settings → General → Security → API Key</td></tr>
       <tr><td>Plex</td><td>Internal URL + X-Plex-Token</td><td>See <a href="https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/" target="_blank">Plex support article</a></td></tr>
-      <tr><td>Tautulli</td><td>Internal URL + API key</td><td>Tautulli → Settings → Web Interface → API Key</td></tr>
     </tbody>
   </table>
   <p>Use the <strong>Test</strong> button next to each service to verify the connection before saving.</p>
@@ -372,7 +371,7 @@ volumes:
   <h3>Item detail page</h3>
   <p>Click any item's title to open its detail page. This shows:</p>
   <ul>
-    <li><strong>Watch stats</strong> — total plays, last watched date, maximum watch percentage, size on disk</li>
+    <li><strong>Watch stats</strong> — total plays, last watched date, size on disk</li>
     <li><strong>Library info</strong> — added date, runtime, certification, studio/network, series status</li>
     <li><strong>File info</strong> — quality profile, size, file path</li>
     <li><strong>Warden status</strong> — matched rules, death row date, days remaining, pardon form (for condemned items)</li>
@@ -477,7 +476,6 @@ volumes:
     <thead><tr><th>Setting</th><th>Default</th><th>Description</th></tr></thead>
     <tbody>
       <tr><td>Dry Run mode</td><td>On</td><td>When enabled, Warden condemns items and sends notifications but never executes them. The orange DRY RUN badge is shown in the navigation bar. Disable only when you are confident your rules are correct.</td></tr>
-      <tr><td>Watch threshold %</td><td>80%</td><td>The minimum percentage of a video that must be watched (in a single session) for it to count as "watched" in Tautulli data. Does not apply to Plex fallback data, which uses a fixed ~90% threshold internally.</td></tr>
       <tr><td>TV watched definition</td><td>Any episode</td><td>How Warden determines if a TV series counts as "watched". <strong>Any episode</strong> — watched if any single episode has been played. <strong>50% of episodes</strong> — more than half of all episodes must have been played. <strong>All episodes</strong> — every episode must have been played.</td></tr>
       <tr><td>Death Row Days</td><td>30</td><td>Number of days an item stays on death row before execution. The timer starts on the day the item is first condemned. Changing this value affects all existing condemned items immediately.</td></tr>
       <tr><td>Expedite Execution Days</td><td>—</td><td>When expediting an item, its countdown is collapsed to this many days remaining — regardless of how many days were left. For example, a value of 1 means the item will be executed on the next scan tomorrow. Leave blank to disable the Expedite feature. Must be between 1 and Death Row Days − 1.</td></tr>
@@ -494,8 +492,7 @@ volumes:
     <tbody>
       <tr><td>Radarr</td><td>Movies only. Warden uses Radarr to list films, fetch metadata, execute removals, and add to the exclusion list.</td></tr>
       <tr><td>Sonarr</td><td>TV shows only. Same role as Radarr but for series.</td></tr>
-      <tr><td>Plex</td><td>Used as a fallback watch history source when Tautulli has no data for an item (e.g. watched before Tautulli was installed). Also used to fetch library add dates and Plex metadata keys for deep links.</td></tr>
-      <tr><td>Tautulli</td><td>Primary watch history source. Provides precise per-session watch percentages filtered to your configured threshold. Strongly recommended over Plex-only setups.</td></tr>
+      <tr><td>Plex</td><td>Watch history source. Warden queries both library metadata and full play history, matching items by IMDB ID to correctly handle cases where Radarr/Sonarr and Plex use different titles for the same content. Also used to fetch library add dates and Plex deep links.</td></tr>
     </tbody>
   </table>
 
@@ -547,9 +544,10 @@ volumes:
 
   <h3>Watch history shows "Never" for items I've watched</h3>
   <ul>
-    <li>Check the Tautulli connection (Settings → Connections → Test). If Tautulli is unreachable, Warden falls back to Plex, which may not have history for all items.</li>
-    <li>Tautulli only records sessions from the date it was installed. Items watched before Tautulli was set up will show "Never" in Tautulli — Plex's <code>lastViewedAt</code> is used as a fallback in this case.</li>
-    <li>The watch threshold may be set too high. If you stopped a video at 79% and your threshold is 80%, it won't count. Lower the threshold in Settings.</li>
+    <li>Check the Plex connection (Settings → Connections → Test) and verify the token is still valid.</li>
+    <li>Warden reads both Plex library metadata (<code>viewedLeafCount</code> / <code>lastViewedAt</code>) and full play history. If library metadata was reset by a server migration, Warden will still find plays via the history endpoint.</li>
+    <li>Matching is done by IMDB ID first, then title + year as a fallback. If an item has no IMDB ID in either Radarr/Sonarr or Plex, check that both services have the correct metadata agent assigned.</li>
+    <li>Plex marks an episode as "watched" at approximately 90% completion. If playback was stopped before that point, it will not appear in <code>viewedLeafCount</code> — though it will still appear in play history if the session was logged.</li>
   </ul>
 
   <h3>Notifications aren't being sent</h3>

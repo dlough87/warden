@@ -21,12 +21,6 @@ class PlexConfig(BaseModel):
     public_url: str = ""
 
 
-class TautulliConfig(BaseModel):
-    url: str = ""
-    api_key: str = ""
-    public_url: str = ""
-
-
 class RadarrConfig(BaseModel):
     url: str = ""
     api_key: str = ""
@@ -53,7 +47,6 @@ class ServerConfig(BaseModel):
 
 class AppConfig(BaseModel):
     plex: PlexConfig = PlexConfig()
-    tautulli: TautulliConfig = TautulliConfig()
     radarr: RadarrConfig = RadarrConfig()
     sonarr: SonarrConfig = SonarrConfig()
     notifications: NotificationsConfig = NotificationsConfig()
@@ -69,11 +62,6 @@ async def get_config_async() -> AppConfig:
             url=s.get("plex_url", ""),
             token=s.get("plex_token", ""),
             public_url=s.get("plex_public_url", ""),
-        ),
-        tautulli=TautulliConfig(
-            url=s.get("tautulli_url", ""),
-            api_key=s.get("tautulli_api_key", ""),
-            public_url=s.get("tautulli_public_url", ""),
         ),
         radarr=RadarrConfig(
             url=s.get("radarr_url", ""),

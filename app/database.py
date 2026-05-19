@@ -7,7 +7,6 @@ DB_PATH = "/data/warden.db"
 
 DEFAULT_SETTINGS = {
     "dry_run": "true",
-    "watch_threshold_percent": "80",
     "tv_watched_definition": "any_episode",
     "death_row_days": "30",
     "expedite_days": "",
@@ -22,9 +21,6 @@ DEFAULT_SETTINGS = {
     "plex_url": "",
     "plex_token": "",
     "plex_public_url": "",
-    "tautulli_url": "",
-    "tautulli_api_key": "",
-    "tautulli_public_url": "",
     "plex_machine_id": "",
     "webauthn_rp_id": "",
 }
@@ -293,7 +289,6 @@ async def get_connection_settings() -> dict:
         "radarr_url", "radarr_api_key", "radarr_public_url",
         "sonarr_url", "sonarr_api_key", "sonarr_public_url",
         "plex_url", "plex_token", "plex_public_url",
-        "tautulli_url", "tautulli_api_key", "tautulli_public_url",
         "discord_webhook_url",
     ]
     async with aiosqlite.connect(DB_PATH) as db:
@@ -751,9 +746,8 @@ async def get_report_watch_stats() -> dict:
         db.row_factory = aiosqlite.Row
         row = await (await db.execute("""
             SELECT
-              SUM(CASE WHEN total_plays > 0 THEN 1 ELSE 0 END)                            AS watched_count,
-              SUM(CASE WHEN total_plays = 0 OR total_plays IS NULL THEN 1 ELSE 0 END)      AS unwatched_count,
-              ROUND(AVG(CASE WHEN total_plays > 0 THEN max_watch_percent END), 1)          AS avg_watch_pct,
+              SUM(CASE WHEN last_watched_date IS NOT NULL THEN 1 ELSE 0 END)              AS watched_count,
+              SUM(CASE WHEN last_watched_date IS NULL THEN 1 ELSE 0 END)                  AS unwatched_count,
               SUM(CASE WHEN last_watched_date >= date('now', '-90 days') THEN 1 ELSE 0 END) AS watched_last_90d
             FROM media_items WHERE status != 'deleted'
         """)).fetchone()

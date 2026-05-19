@@ -64,9 +64,10 @@ def _matches(item: dict, rule: dict) -> bool:
 
     # --- watch status ---
     if rule.get("unwatched_months") is None:
-        # Rule targets items that have NEVER been watched to threshold
-        if item.get("total_plays", 0) > 0:
-            return False  # has been watched — safe
+        # Rule targets items never started. Use last_watched_date (set from any play activity,
+        # even below threshold) rather than total_plays (only threshold-qualified sessions).
+        if item.get("last_watched_date") is not None:
+            return False  # has been started — safe
     else:
         # Rule targets items not watched within the last N months
         cutoff = today - timedelta(days=rule["unwatched_months"] * 30)

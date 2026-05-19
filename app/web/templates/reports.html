@@ -164,7 +164,7 @@
 {# ── F: Watch Engagement ───────────────────────────────────────────────────── #}
 <div class="report-section">
   <h2>Watch Engagement</h2>
-  <div class="grid grid-4">
+  <div class="grid grid-3">
     <div class="card stat">
       <div class="stat-value {% if watch_pct >= 80 %}safe{% elif watch_pct >= 50 %}warn{% else %}danger{% endif %}">
         {{ watch_pct }}%
@@ -176,10 +176,6 @@
         {{ watch_stats.get("unwatched_count", 0) }}
       </div>
       <div class="stat-label">Never watched</div>
-    </div>
-    <div class="card stat">
-      <div class="stat-value">{{ watch_stats.get("avg_watch_pct") or "—" }}{% if watch_stats.get("avg_watch_pct") %}%{% endif %}</div>
-      <div class="stat-label">Avg completion</div>
     </div>
     <div class="card stat">
       <div class="stat-value safe">{{ watch_stats.get("watched_last_90d", 0) }}</div>
