@@ -222,7 +222,7 @@
               <div style="font-size:0.9rem;font-weight:500">{{ pk.name }}</div>
               <div style="font-size:0.75rem;color:var(--muted)">Added {{ pk.created_at[:10] }}</div>
             </div>
-            <form method="post" action="/profile/passkey/delete/{{ pk.id }}" onsubmit="return confirm('Remove this passkey?')">
+            <form method="post" action="/profile/passkey/delete/{{ pk.id }}" data-confirm="Remove this passkey?">
               <button type="submit" class="btn btn-sm" style="background:rgba(231,76,60,0.1);color:var(--accent);border:1px solid rgba(231,76,60,0.3)">Remove</button>
             </form>
           </div>

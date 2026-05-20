@@ -304,7 +304,7 @@
           <button type="submit" class="btn btn-ghost btn-sm">{{ "Disable" if agent.enabled else "Enable" }}</button>
         </form>
         <form method="POST" action="/settings/notifications/agents/{{ agent.id }}/delete" style="display:inline"
-              onsubmit="return confirm('Delete agent {{ agent.name }}?')">
+              data-confirm="Delete agent {{ agent.name }}?">
           <button type="submit" class="btn btn-danger btn-sm">Delete</button>
         </form>
       </div>

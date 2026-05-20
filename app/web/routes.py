@@ -489,13 +489,27 @@ async def reports_page(request: Request):
     })
 
 
+_SCAN_POLL_SPAN = (
+    '<span id="scan-poll" class="scanning" '
+    'hx-get="/scan/status" hx-trigger="every 2s" hx-swap="outerHTML">'
+    '⏳ Scanning…</span>'
+)
+
+
 @router.post("/scan/run", response_class=HTMLResponse)
 async def trigger_scan(request: Request):
     if not is_running():
         import asyncio
         asyncio.create_task(run_scan())
         await log_audit("Manual scan triggered", ip=request.client.host)
-    return HTMLResponse('<span class="scanning">Scan started...</span>')
+    return HTMLResponse(_SCAN_POLL_SPAN)
+
+
+@router.get("/scan/status", response_class=HTMLResponse)
+async def scan_status(request: Request):
+    if is_running():
+        return HTMLResponse(_SCAN_POLL_SPAN)
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 # ── Death Row ─────────────────────────────────────────────────────────────────
@@ -621,7 +635,7 @@ async def pardon(request: Request, item_id: str, reason: str = Form(...)):
     await pardon_item(item_id, reason)
     title = item["title"] if item else item_id
     await log_audit("Item pardoned", f"{title} — {reason}" if reason else title, request.client.host)
-    return HTMLResponse('<tr><td colspan="9" class="pardoned">✓ Pardoned</td></tr>')
+    return HTMLResponse("", headers={"HX-Refresh": "true"})
 
 
 @router.post("/death-row/{item_id}/uncondemn", response_class=HTMLResponse)
