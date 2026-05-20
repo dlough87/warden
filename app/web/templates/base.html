@@ -137,6 +137,28 @@
     .pardoned { color: var(--green); font-style: italic; }
     .scanning { color: var(--orange); }
 
+    /* ── Global confirm modal ── */
+    #confirm-modal {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+    }
+    #confirm-modal.open { display: flex; }
+    #confirm-modal .confirm-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px; width: 420px; max-width: calc(100vw - 32px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    #confirm-modal .confirm-message {
+      font-size: 0.95rem; color: var(--text); margin-bottom: 20px; line-height: 1.5;
+    }
+    #confirm-modal .confirm-actions {
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    #confirm-modal .btn-confirm-danger {
+      background: var(--accent); color: white; border: 1px solid var(--accent);
+    }
+    #confirm-modal .btn-confirm-danger:hover { background: #c0392b; border-color: #c0392b; }
+
     .rule-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 16px; }
     .rule-card.disabled { opacity: 0.5; }
     .rule-name { font-weight: 600; flex: 1; }
@@ -228,6 +250,17 @@
 <main>
   {% block content %}{% endblock %}
 </main>
+
+<div id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-message">
+  <div class="confirm-box">
+    <div class="confirm-message" id="confirm-message"></div>
+    <div class="confirm-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="confirm-cancel">Cancel</button>
+      <button type="button" class="btn btn-sm btn-confirm-danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function toggleNav() {
   document.getElementById('nav-drawer').classList.toggle('open');
@@ -246,6 +279,74 @@ document.getElementById('nav-drawer').querySelectorAll('a').forEach(function(a) 
     document.getElementById('nav-drawer').classList.remove('open');
   });
 });
+
+// ── Global confirm modal ──────────────────────────────────────────────────────
+(function () {
+  var modal = document.getElementById('confirm-modal');
+  var msgEl = document.getElementById('confirm-message');
+  var okBtn = document.getElementById('confirm-ok');
+  var cancelBtn = document.getElementById('confirm-cancel');
+  var pending = null;
+
+  function close(result) {
+    modal.classList.remove('open');
+    document.removeEventListener('keydown', onKey);
+    var resolver = pending;
+    pending = null;
+    if (resolver) resolver(result);
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') { e.preventDefault(); close(false); }
+    else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+  }
+
+  okBtn.addEventListener('click', function () { close(true); });
+  cancelBtn.addEventListener('click', function () { close(false); });
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) close(false);
+  });
+
+  window.confirmDialog = function (message, opts) {
+    opts = opts || {};
+    if (pending) close(false);  // collapse any prior dialog
+    msgEl.textContent = message || 'Are you sure?';
+    okBtn.textContent = opts.confirmLabel || 'Confirm';
+    cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+    okBtn.classList.toggle('btn-confirm-danger', opts.danger !== false);
+    modal.classList.add('open');
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () { okBtn.focus(); }, 30);
+    return new Promise(function (resolve) { pending = resolve; });
+  };
+
+  // Intercept any <form data-confirm="..."> submission site-wide.
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form || !form.matches || !form.matches('form[data-confirm]')) return;
+    if (form.dataset.confirmed === '1') {
+      form.dataset.confirmed = '';
+      return;  // already confirmed, let it through
+    }
+    e.preventDefault();
+    confirmDialog(form.dataset.confirm).then(function (ok) {
+      if (ok) {
+        form.dataset.confirmed = '1';
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }
+    });
+  }, true);
+
+  // Intercept HTMX hx-confirm so it uses our modal instead of native confirm().
+  document.addEventListener('htmx:confirm', function (e) {
+    if (!e.detail || !e.detail.question) return;  // no hx-confirm set
+    e.preventDefault();
+    confirmDialog(e.detail.question).then(function (ok) {
+      if (ok) e.detail.issueRequest(true);
+    });
+  });
+})();
 </script>
 {% block scripts %}{% endblock %}
 </body>

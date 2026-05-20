@@ -42,7 +42,7 @@
       <button type="submit" class="btn btn-ghost btn-sm">Duplicate</button>
     </form>
     <form method="POST" action="/rules/{{ rule.id }}/delete"
-          onsubmit="return confirm('Delete rule \'{{ rule.name }}\'?')">
+          data-confirm="Delete rule &lsquo;{{ rule.name }}&rsquo;?">
       <button type="submit" class="btn btn-danger btn-sm">Delete</button>
     </form>
   </div>
